@@ -193,7 +193,7 @@
 
       activePlantings.forEach(active => {
         const fam = active.cropFamily;
-        if (fam === 'その他') return;
+        if (!fam || fam === 'その他' || !CROP_FAMILIES[fam]) return;
         const minYears = CROP_FAMILIES[fam].minYears;
 
         const pastSame = appState.plantings.filter(p =>
@@ -246,7 +246,7 @@
     function checkPlanRotation(plan) {
       const warnings = [];
       const fam = plan.cropFamily;
-      if (fam === 'その他') return warnings;
+      if (!fam || fam === 'その他' || !CROP_FAMILIES[fam]) return warnings;
       const minYears = CROP_FAMILIES[fam].minYears;
       const planStartYear = parseInt((plan.startMonth||'').substring(0,4)) || appState.planYear;
 
