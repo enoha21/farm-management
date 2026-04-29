@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>農園作付け管理システム - 完全版</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .label { display:block; font-size:0.8rem; font-weight:700; margin-bottom:4px; color:#374151; }
@@ -33,6 +35,44 @@
   <div id="app"></div>
 
   <script>
+    // ======================================
+    // Firebase 設定・初期化
+    // ======================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyCwEY_jjdzhTHjhrA_CGHs1isx1VHe6YFg",
+      authDomain: "farm-management-29ad7.firebaseapp.com",
+      projectId: "farm-management-29ad7",
+      storageBucket: "farm-management-29ad7.firebasestorage.app",
+      messagingSenderId: "255926610543",
+      appId: "1:255926610543:web:b77fa8f857c3d1f6683b9a",
+      databaseURL: "https://farm-management-29ad7-default-rtdb.asia-southeast1.firebasedatabase.app"
+    };
+
+    let firebaseDb = null;
+    let syncStatus = 'loading';
+
+    try {
+      firebase.initializeApp(firebaseConfig);
+      firebaseDb = firebase.database();
+    } catch(e) {
+      console.error('Firebase初期化失敗:', e);
+      syncStatus = 'offline';
+    }
+
+    function updateSyncIndicator() {
+      const el = document.getElementById('syncIndicator');
+      if (!el) return;
+      const map = {
+        loading: ['⏳ 読み込み中...', '#9ca3af'],
+        saving:  ['⬆️ 保存中...', '#2563eb'],
+        synced:  ['☁️ クラウド同期済', '#86efac'],
+        offline: ['📴 オフライン（ローカル保存）', '#fbbf24'],
+      };
+      const [text, color] = map[syncStatus] || map.offline;
+      el.textContent = text;
+      el.style.color = color;
+    }
+
     // ======================================
     // 連作障害データベース
     // ======================================
@@ -89,35 +129,52 @@
       historyYear: 0   // 0=全年表示
     };
 
-    // ========== localStorage 自動保存 ==========
+    // ========== 保存・読み込み（Firebase + localStorage） ==========
     function autoSave() {
-      try {
-        localStorage.setItem('farmAppData', JSON.stringify({
-          plantings: appState.plantings,
-          plans: appState.plans
-        }));
-      } catch(e) { console.error('Save failed:', e); }
+      const data = { plantings: appState.plantings, plans: appState.plans };
+      // ローカルバックアップ
+      try { localStorage.setItem('farmAppData', JSON.stringify(data)); } catch(e) {}
+      // クラウド保存
+      if (!firebaseDb) { syncStatus = 'offline'; updateSyncIndicator(); return; }
+      syncStatus = 'saving';
+      updateSyncIndicator();
+      firebaseDb.ref('farmData').set({ ...data, lastUpdated: new Date().toISOString() })
+        .then(() => { syncStatus = 'synced'; updateSyncIndicator(); })
+        .catch(() => { syncStatus = 'offline'; updateSyncIndicator(); });
     }
 
-    function autoLoad() {
+    function loadFromLocal() {
       try {
         const saved = localStorage.getItem('farmAppData');
         if (saved) {
           const data = JSON.parse(saved);
           appState.plantings = data.plantings || [];
           appState.plans = data.plans || [];
-          return true;
         }
-      } catch(e) { console.error('Load failed:', e); }
-      return false;
+      } catch(e) {}
     }
 
-    // ページロード時に自動読み込み
-    window.addEventListener('load', () => {
-      if (autoLoad()) {
-        console.log('前回のデータを読み込みました');
-        render();
+    // ページロード時：localStorage即時表示→Firebase最新データで上書き
+    window.addEventListener('load', async () => {
+      loadFromLocal();
+      render();
+
+      if (!firebaseDb) { syncStatus = 'offline'; updateSyncIndicator(); return; }
+
+      try {
+        const snapshot = await firebaseDb.ref('farmData').once('value');
+        const data = snapshot.val();
+        if (data) {
+          appState.plantings = data.plantings || [];
+          appState.plans = data.plans || [];
+          try { localStorage.setItem('farmAppData', JSON.stringify({ plantings: appState.plantings, plans: appState.plans })); } catch(e) {}
+        }
+        syncStatus = 'synced';
+      } catch(e) {
+        syncStatus = 'offline';
       }
+      render();
+      updateSyncIndicator();
     });
 
     function findFamily(name) {
@@ -621,11 +678,14 @@
                 <h1 class="text-2xl font-bold">🌾 農園作付け管理システム</h1>
                 <p class="text-green-300 text-sm">圃場2面 × 畝6条 ／ 7,200mm × 9,800mm ／ 畝幅1,200mm・畝間通路400mm</p>
               </div>
-              ${warnCount > 0 ? `
-              <button onclick="appState.tab='warnings';render()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold">
-                ⚠️ 連作警告 ${warnCount}件
-              </button>
-              ` : ''}
+              <div class="flex items-center gap-3 flex-wrap">
+                <span id="syncIndicator" style="font-size:12px;color:#86efac">⏳ 読み込み中...</span>
+                ${warnCount > 0 ? `
+                <button onclick="appState.tab='warnings';render()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold">
+                  ⚠️ 連作警告 ${warnCount}件
+                </button>
+                ` : ''}
+              </div>
             </div>
           </div>
 
