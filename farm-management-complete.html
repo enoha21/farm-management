@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>農園作付け管理システム - 完全版</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+    .label { display:block; font-size:0.8rem; font-weight:700; margin-bottom:4px; color:#374151; }
+    .input { width:100%; padding:8px 12px; border:2px solid #d1d5db; border-radius:8px; font-size:0.875rem; background:#fff; }
+    .input:focus { outline:none; border-color:#16a34a; }
+    .btn { padding:8px 16px; border-radius:8px; font-weight:bold; cursor:pointer; transition:all 0.2s; border:none; }
+    .btn-green { background:#16a34a; color:white; }
+    .btn-green:hover { background:#15803d; }
+    .btn-blue { background:#2563eb; color:white; }
+    .btn-blue:hover { background:#1d4ed8; }
+    .btn-gray { background:#d1d5db; color:#374151; }
+    .btn-gray:hover { background:#b4bcc3; }
+    .warning-critical { background:#fee2e2; border:2px solid #dc2626; }
+    .warning-alert { background:#fef3c7; border:2px solid #f59e0b; }
+    @media print {
+      body { background:white !important; }
+      .no-print { display:none !important; }
+      .print-only { display:block !important; }
+      #app > div > div:first-child { display:none !important; }
+      .max-w-6xl { max-width:100% !important; padding:0 !important; }
+    }
+    .print-only { display:none; }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div id="app"></div>
+
+  <script>
+    // ======================================
+    // 連作障害データベース
+    // ======================================
+    const CROP_FAMILIES = {
+      "ナス科":      { minYears: 3, color: "#dc2626", crops: ["トマト","ミニトマト","ナス","ピーマン","パプリカ","シシトウ","トウガラシ","唐辛子","ジャガイモ"] },
+      "ウリ科":      { minYears: 2, color: "#f97316", crops: ["キュウリ","カボチャ","スイカ","メロン","ゴーヤ","ゴーヤー","ズッキーニ","ヘチマ","トウガン","冬瓜","マクワウリ"] },
+      "アブラナ科":  { minYears: 2, color: "#2563eb", crops: ["キャベツ","ブロッコリー","カリフラワー","ダイコン","大根","ハクサイ","白菜","コマツナ","小松菜","カブ","蕪","チンゲンサイ","チンゲン菜","ミズナ","水菜","ケール","コールラビ","ルッコラ","ロケット","ラディッシュ","二十日大根","野沢菜","ノザワナ","カラシナ","からし菜","菜の花","アブラナ","芽キャベツ","メキャベツ","クレソン"] },
+      "セリ科":      { minYears: 3, color: "#f59e0b", crops: ["ニンジン","人参","パセリ","セロリ","ミツバ","三つ葉","コリアンダー","パクチー","ディル","フェンネル","アシタバ","明日葉"] },
+      "マメ科":      { minYears: 2, color: "#22c55e", crops: ["インゲン","サヤインゲン","エダマメ","枝豆","ソラマメ","空豆","エンドウ","エンドウ豆","スナップエンドウ","サヤエンドウ","さやえんどう","グリーンピース","落花生","ラッカセイ","ダイズ","大豆"] },
+      "キク科":      { minYears: 2, color: "#8b5cf6", crops: ["レタス","サニーレタス","リーフレタス","サラダ菜","シュンギク","春菊","ゴボウ","牛蒡","チコリ","エンダイブ","アーティチョーク","ヤーコン","ステビア"] },
+      "ヒユ科":      { minYears: 2, color: "#eab308", crops: ["ホウレンソウ","ほうれん草","スイスチャード","フダンソウ","ビーツ","ビート","テンサイ"] },
+      "ヒガンバナ科": { minYears: 2, color: "#ec4899", crops: ["タマネギ","玉ねぎ","ニンニク","にんにく","ネギ","葱","ニラ","韮","ラッキョウ","らっきょう","アサツキ","浅葱","リーキ","ポロネギ","ワケギ","わけぎ"] },
+      "シソ科":      { minYears: 1, color: "#84cc16", crops: ["バジル","シソ","紫蘇","大葉","オオバ","ミント","ローズマリー","タイム","セージ","オレガノ","ラベンダー","メボウキ","レモンバーム"] },
+      "ショウガ科":  { minYears: 3, color: "#fb7185", crops: ["ショウガ","生姜","ミョウガ","茗荷"] },
+      "サトイモ科":  { minYears: 3, color: "#92400e", crops: ["サトイモ","里芋","コンニャク","こんにゃく"] },
+      "ヤマノイモ科":{ minYears: 3, color: "#78716c", crops: ["ヤマイモ","山芋","ナガイモ","長芋","ジネンジョ","自然薯"] },
+      "イネ科":      { minYears: 1, color: "#65a30d", crops: ["トウモロコシ","とうもろこし","スイートコーン"] },
+      "アオイ科":    { minYears: 2, color: "#0d9488", crops: ["オクラ"] },
+      "バラ科":      { minYears: 4, color: "#e11d48", crops: ["イチゴ","苺"] },
+      "ユリ科":      { minYears: 2, color: "#06b6d4", crops: ["アスパラガス"] },
+      "その他":      { minYears: 1, color: "#6b7280", crops: [] },
+    };
+
+    const RIDGES = [
+      {id:"F1R1",field:1,no:6},{id:"F1R2",field:1,no:5},{id:"F1R3",field:1,no:4},
+      {id:"F1R4",field:1,no:3},{id:"F1R5",field:1,no:2},{id:"F1R6",field:1,no:1},
+      {id:"F2R1",field:2,no:6},{id:"F2R2",field:2,no:5},{id:"F2R3",field:2,no:4},
+      {id:"F2R4",field:2,no:3},{id:"F2R5",field:2,no:2},{id:"F2R6",field:2,no:1},
+    ];
+
+    const FIELDS = [
+      {id:1,name:"圃場1",loc:"北側"},
+      {id:2,name:"圃場2",loc:"南側"},
+    ];
+
+    const _todayStr = new Date().toISOString().split('T')[0];
+    const _thisYear = new Date().getFullYear();
+
+    let appState = {
+      tab: 'map',
+      plantings: [],
+      showForm: false,
+      editId: null,
+      form: {ridgeId:'F1R1',cropName:'',cropFamily:'その他',variety:'',count:'',from:0,to:100,plantDate:_todayStr,harvestDate:'',year:_thisYear,season:'春夏',status:'active',notes:''},
+      // 作付け計画
+      planYear: _thisYear,
+      plans: [],
+      showPlanForm: false,
+      planEditId: null,
+      planForm: {ridgeId:'F1R1',cropName:'',cropFamily:'その他',from:0,to:100,startMonth:'',endMonth:'',notes:''},
+      planView: 'gantt',
+      planMapMonth: new Date().getMonth() + 1,
+      planListSort: 'ridge',
+      historyYear: 0   // 0=全年表示
+    };
+
+    // ========== localStorage 自動保存 ==========
+    function autoSave() {
+      try {
+        localStorage.setItem('farmAppData', JSON.stringify({
+          plantings: appState.plantings,
+          plans: appState.plans
+        }));
+      } catch(e) { console.error('Save failed:', e); }
+    }
+
+    function autoLoad() {
+      try {
+        const saved = localStorage.getItem('farmAppData');
+        if (saved) {
+          const data = JSON.parse(saved);
+          appState.plantings = data.plantings || [];
+          appState.plans = data.plans || [];
+          return true;
+        }
+      } catch(e) { console.error('Load failed:', e); }
+      return false;
+    }
+
+    // ページロード時に自動読み込み
+    window.addEventListener('load', () => {
+      if (autoLoad()) {
+        console.log('前回のデータを読み込みました');
+        render();
+      }
+    });
+
+    function findFamily(name) {
+      for (const [fam, data] of Object.entries(CROP_FAMILIES)) {
+        if (fam !== "その他" && data.crops.includes(name)) return fam;
+      }
+      return "その他";
+    }
+
+    // ========== 連作障害警告計算 ==========
+    function calculateWarnings() {
+      const warnings = [];
+      const currentYear = new Date().getFullYear();
+      const todayStr = new Date().toISOString().split('T')[0];
+
+      // 収穫予定日超過チェック
+      appState.plantings.filter(p => p.status === 'active' && p.harvestDate && p.harvestDate < todayStr).forEach(p => {
+        const ridge = RIDGES.find(r => r.id === p.ridgeId);
+        const field = FIELDS.find(f => f.id === ridge.field);
+        const daysOver = Math.floor((new Date(todayStr) - new Date(p.harvestDate)) / 86400000);
+        warnings.push({
+          id: 'overdue-' + p.id,
+          ridgeId: p.ridgeId,
+          cropName: p.cropName,
+          cropFamily: p.cropFamily,
+          severity: daysOver > 14 ? 'critical' : 'warning',
+          type: 'overdue',
+          fieldName: field.name,
+          ridgeNo: ridge.no,
+          message: `${field.name} 畝${ridge.no}: ${p.cropName} の収穫予定日（${p.harvestDate}）から${daysOver}日が経過しています。状態を「収穫済」に更新してください。`
+        });
+      });
+
+      const activePlantings = appState.plantings.filter(p => p.status === 'active' || p.status === 'planned');
+
+      activePlantings.forEach(active => {
+        const fam = active.cropFamily;
+        if (fam === 'その他') return;
+        const minYears = CROP_FAMILIES[fam].minYears;
+
+        const pastSame = appState.plantings.filter(p =>
+          p.id !== active.id &&
+          p.ridgeId === active.ridgeId &&
+          p.cropFamily === fam &&
+          p.status === 'completed' &&
+          (currentYear - p.year) > 0 &&
+          (currentYear - p.year) < minYears
+        );
+
+        if (pastSame.length > 0) {
+          const lastYear = Math.max(...pastSame.map(p => p.year));
+          const gap = currentYear - lastYear;
+          const ridge = RIDGES.find(r => r.id === active.ridgeId);
+          const field = FIELDS.find(f => f.id === ridge.field);
+
+          warnings.push({
+            id: 'w-' + active.id,
+            ridgeId: active.ridgeId,
+            cropName: active.cropName,
+            cropFamily: fam,
+            lastYear,
+            gap,
+            minYears,
+            severity: gap <= 1 ? 'critical' : 'warning',
+            fieldName: field.name,
+            ridgeNo: ridge.no,
+            message: `${field.name} 畝${ridge.no}: ${active.cropName}（${fam}）は${lastYear}年にも作付けされています。${fam}は${minYears}年間の輪作が推奨されます。（前回から${gap}年）`
+          });
+        }
+      });
+
+      return warnings;
+    }
+
+    // ========== 作付け計画関数 ==========
+
+    // 計画年度に既に使用中の作付け（年を跨ぐものを含む）を取得
+    function getActiveInYear(ridgeId, year) {
+      return appState.plantings.filter(p => {
+        if (p.ridgeId !== ridgeId) return false;
+        const sy = parseInt((p.plantDate||'').substring(0,4));
+        const ey = p.harvestDate ? parseInt(p.harvestDate.substring(0,4)) : sy;
+        return sy <= year && ey >= year;
+      });
+    }
+
+    // 計画の連作チェック
+    function checkPlanRotation(plan) {
+      const warnings = [];
+      const fam = plan.cropFamily;
+      if (fam === 'その他') return warnings;
+      const minYears = CROP_FAMILIES[fam].minYears;
+      const planStartYear = parseInt((plan.startMonth||'').substring(0,4)) || appState.planYear;
+
+      // 実績データとのチェック
+      const pastSame = appState.plantings.filter(p =>
+        p.ridgeId === plan.ridgeId &&
+        p.cropFamily === fam &&
+        (p.status === 'completed' || p.status === 'active')
+      );
+      pastSame.forEach(p => {
+        const gap = planStartYear - p.year;
+        if (gap >= 0 && gap < minYears) {
+          const ridge = RIDGES.find(r => r.id === plan.ridgeId);
+          const field = FIELDS.find(f => f.id === ridge.field);
+          warnings.push({
+            severity: gap <= 1 ? 'critical' : 'warning',
+            message: `${field.name} 畝${ridge.no}：${p.cropName}（${fam}）を${p.year}年に作付け済。${minYears}年輪作が必要です（あと${minYears - gap}年）`
+          });
+        }
+      });
+
+      // 同年の他の計画とのチェック（区間と期間が両方重なる場合のみ警告）
+      const planSame = appState.plans.filter(pl =>
+        pl.id !== plan.id &&
+        pl.ridgeId === plan.ridgeId &&
+        pl.cropFamily === fam &&
+        pl.from < plan.to && pl.to > plan.from &&         // 区間が重なる
+        pl.startMonth <= plan.endMonth && pl.endMonth >= plan.startMonth  // 期間が重なる
+      );
+      if (planSame.length > 0) {
+        warnings.push({ severity: 'warning', message: `同じ畝の同じ区間・同じ時期に同じ科目（${fam}）の計画が重複しています` });
+      }
+
+      return warnings;
+    }
+
+    function savePlan() {
+      const f = appState.planForm;
+      if (!f.cropName.trim()) { alert('作物名を入力してください'); return; }
+      if (!f.startMonth) { alert('開始月を入力してください'); return; }
+      if (!f.endMonth) { alert('終了月を入力してください'); return; }
+      if (f.from >= f.to) { alert('区間の値を確認してください（開始 < 終了）'); return; }
+
+      if (appState.planEditId) {
+        appState.plans = appState.plans.map(p =>
+          p.id === appState.planEditId ? {...f, id: appState.planEditId} : p
+        );
+      } else {
+        appState.plans.push({...f, id:'pl'+Date.now()});
+      }
+      appState.showPlanForm = false;
+      appState.planEditId = null;
+      appState.planForm = {ridgeId:'F1R1',cropName:'',cropFamily:'その他',from:0,to:100,startMonth:'',endMonth:'',notes:''};
+      autoSave();
+      render();
+    }
+
+    function deletePlan(id) {
+      if (confirm('この計画を削除しますか？')) {
+        appState.plans = appState.plans.filter(p => p.id !== id);
+        autoSave();
+        render();
+      }
+    }
+
+    function convertPlanToPlanting(planId) {
+      const plan = appState.plans.find(p => p.id === planId);
+      if (!plan) return;
+      if (!confirm(`「${plan.cropName}」の計画を作付け実績に変換しますか？\n計画は削除され、栽培中として記録されます。`)) return;
+      const startYear = parseInt((plan.startMonth || '').substring(0, 4)) || new Date().getFullYear();
+      const startMonth = parseInt((plan.startMonth || '').substring(5, 7)) || 4;
+      const season = (startMonth >= 3 && startMonth <= 9) ? '春夏' : '秋冬';
+      const planting = {
+        id: 'p' + Date.now(),
+        ridgeId: plan.ridgeId,
+        cropName: plan.cropName,
+        cropFamily: plan.cropFamily,
+        variety: '',
+        count: '',
+        from: plan.from,
+        to: plan.to,
+        plantDate: plan.startMonth ? plan.startMonth + '-01' : '',
+        harvestDate: plan.endMonth ? plan.endMonth + '-28' : '',
+        year: startYear,
+        season: season,
+        status: 'active',
+        notes: plan.notes || ''
+      };
+      appState.plantings.push(planting);
+      appState.plans = appState.plans.filter(p => p.id !== planId);
+      autoSave();
+      render();
+    }
+
+    // 混植対応：同一区間に複数作物がある場合に横分割して表示
+    // crops: [{from, to, cropName, cropFamily, _isExisting?, _warns?}]
+    function renderCropSegments(crops) {
+      if (!crops || crops.length === 0) return '';
+      // 全ての境界点を収集してソート
+      var pts = new Set();
+      crops.forEach(function(c){ pts.add(c.from); pts.add(c.to); });
+      var sorted = Array.from(pts).sort(function(a,b){ return a-b; });
+      var html = '';
+      for (var i = 0; i < sorted.length - 1; i++) {
+        var sf = sorted[i], st = sorted[i+1], sh = st - sf;
+        if (sh <= 0) continue;
+        // このセグメントをカバーしている作物を抽出
+        var active = crops.filter(function(c){ return c.from <= sf && c.to >= st; });
+        if (active.length === 0) continue;
+        var w = 100 / active.length;
+        active.forEach(function(c, idx) {
+          var col = (CROP_FAMILIES[c.cropFamily] && CROP_FAMILIES[c.cropFamily].color) || '#999';
+          var fs = sh > 15 ? '11px' : sh > 8 ? '9px' : '7px';
+          var left = idx * w;
+          if (c._isExisting) {
+            // 栽培中実績：白地＋左カラーボーダー
+            html += '<div style="position:absolute;top:' + sf + '%;height:' + sh + '%;width:' + w + '%;left:' + left + '%;background:#fff;border-left:5px solid ' + col + ';border-bottom:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;box-sizing:border-box;padding:1px 3px;z-index:1" title="' + c.cropName + '（栽培中）"><span style="font-size:' + fs + ';color:' + col + ';font-weight:bold;text-align:center;line-height:1.1;word-break:break-all">📌' + c.cropName + '</span></div>';
+          } else {
+            // 計画 or 現在の作付け：ベタ塗り
+            var ws = c._warns || [];
+            html += '<div style="position:absolute;top:' + sf + '%;height:' + sh + '%;width:' + w + '%;left:' + left + '%;background:' + col + ';display:flex;align-items:center;justify-content:center;border-bottom:2px solid #fff;' + (ws.length>0?'box-shadow:inset 0 0 0 3px #dc2626;':'') + 'box-sizing:border-box;padding:1px 3px;z-index:2" title="' + c.cropName + (c._isExisting===false&&c._warns!==undefined?'（計画）':'') + '"><span style="font-size:' + fs + ';color:white;font-weight:bold;text-shadow:0 0 2px rgba(0,0,0,0.6);text-align:center;line-height:1.1;word-break:break-all">' + c.cropName + '</span></div>';
+          }
+        });
+      }
+      return html;
+    }
+
+    // ガントチャートビュー：畝×月で年間利用状況を可視化
+    function renderPlanGantt(year) {
+      var ROW_H = 32;
+      var MONTHS = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+      // 畝ごとの背景色（交互）
+      var ROW_BG = ['#eff6ff','#f0fdf4','#fef9c3','#fdf4ff','#fff7ed','#f0fdfa'];
+
+      var out = '<div class="bg-white rounded-xl shadow p-5 mb-4">';
+      out += '<h3 class="font-bold text-lg mb-1">📅 ' + year + '年度 畝別スケジュール</h3>';
+      out += '<p class="text-xs text-gray-500 mb-4">計画バーをクリックすると編集できます</p>';
+
+      FIELDS.forEach(function(field) {
+        var fRidges = RIDGES.filter(function(r){ return r.field === field.id; });
+        out += '<div style="margin-bottom:20px">';
+        out += '<div style="font-size:13px;font-weight:bold;color:#fff;background:#16a34a;padding:5px 10px;border-radius:6px 6px 0 0;margin-bottom:0">' + field.name + '（' + field.loc + '）</div>';
+
+        // 月ヘッダー行
+        out += '<div style="display:flex;background:#064e3b;border-radius:0;margin-bottom:0">';
+        out += '<div style="width:76px;flex-shrink:0;padding:4px 6px;font-size:10px;font-weight:bold;color:#6ee7b7;border-right:1px solid #065f46">畝</div>';
+        out += '<div style="flex:1;display:flex">';
+        MONTHS.forEach(function(m, i) {
+          out += '<div style="flex:1;text-align:center;font-size:10px;font-weight:bold;color:#a7f3d0;padding:4px 0;border-right:1px solid #065f46">' + m + '月</div>';
+        });
+        out += '</div></div>';
+
+        fRidges.forEach(function(ridge, ridgeIdx) {
+          var rPlans = appState.plans.filter(function(p){ return p.ridgeId === ridge.id; });
+          var existing = getActiveInYear(ridge.id, year);
+          var hasWarn = rPlans.some(function(p){ return checkPlanRotation(p).length > 0; });
+
+          // アイテム収集
+          var items = [];
+          existing.forEach(function(e) {
+            var sy = parseInt((e.plantDate || year + '-01').substring(0,4));
+            var sm = parseInt((e.plantDate || year + '-01').substring(5,7)) || 1;
+            var ey = e.harvestDate ? parseInt(e.harvestDate.substring(0,4)) : sy;
+            var em = e.harvestDate ? parseInt(e.harvestDate.substring(5,7)) : 12;
+            var startM = sy < year ? 1 : (sy > year ? 13 : sm);
+            var endM   = ey > year ? 12 : (ey < year ? 0 : em);
+            if (startM <= 12 && endM >= 1) {
+              items.push(Object.assign({}, e, {_startM: Math.max(1,startM), _endM: Math.min(12,endM), _isExisting: true}));
+            }
+          });
+          rPlans.forEach(function(p) {
+            var sm = parseInt((p.startMonth||'').substring(5,7)) || 1;
+            var em = parseInt((p.endMonth||'').substring(5,7)) || 12;
+            var sy = parseInt((p.startMonth||String(year)).substring(0,4)) || year;
+            var ey = parseInt((p.endMonth||String(year)).substring(0,4)) || year;
+            var startM = sy < year ? 1 : (sy > year ? 13 : sm);
+            var endM   = ey > year ? 12 : (ey < year ? 0 : em);
+            if (startM <= 12 && endM >= 1) {
+              items.push(Object.assign({}, p, {_startM: Math.max(1,startM), _endM: Math.min(12,endM), _isExisting: false, _warns: checkPlanRotation(p), _pid: p.id}));
+            }
+          });
+
+          var numRows = Math.max(1, items.length);
+          var gridH = numRows * ROW_H + 6;
+          var rowBg = hasWarn ? '#fff5f5' : ROW_BG[ridgeIdx % ROW_BG.length];
+          var borderStyle = hasWarn ? '2px solid #fca5a5' : '1px solid #d1d5db';
+
+          out += '<div style="display:flex;background:' + rowBg + ';border:' + borderStyle + ';border-top:none;' + (ridgeIdx===fRidges.length-1?'border-radius:0 0 6px 6px;':'') + '">';
+          // 畝ラベル
+          out += '<div style="width:76px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:bold;border-right:2px solid ' + (hasWarn?'#fca5a5':'#d1d5db') + ';color:' + (hasWarn?'#dc2626':'#1f2937') + ';padding:6px 4px;text-align:center">';
+          out += '畝' + ridge.no + (hasWarn?'<br><span style="font-size:14px">⚠</span>':'');
+          out += '</div>';
+          // グリッド
+          out += '<div style="flex:1;position:relative;height:' + gridH + 'px">';
+          // 月グリッド縦線
+          for (var m = 1; m < 12; m++) {
+            out += '<div style="position:absolute;left:' + (m/12*100) + '%;top:0;bottom:0;width:1px;background:rgba(0,0,0,0.08)"></div>';
+          }
+          // 空き
+          if (items.length === 0) {
+            out += '<div style="position:absolute;inset:0;display:flex;align-items:center;padding-left:12px;color:#9ca3af;font-size:11px">－ 計画なし</div>';
+          }
+          // バー描画
+          items.forEach(function(item, idx) {
+            var lPct = (item._startM - 1) / 12 * 100;
+            var wPct = (item._endM - item._startM + 1) / 12 * 100;
+            var top = idx * ROW_H + 3;
+            var h = ROW_H - 6;
+            var col = (CROP_FAMILIES[item.cropFamily] && CROP_FAMILIES[item.cropFamily].color) || '#999';
+            var label = item.cropName + '  ' + item.from + '〜' + item.to + '%';
+            if (item._isExisting) {
+              out += '<div style="position:absolute;left:calc(' + lPct + '% + 2px);width:calc(' + wPct + '% - 4px);top:' + top + 'px;height:' + h + 'px;background:#fff;border:2px solid ' + col + ';border-left:6px solid ' + col + ';border-radius:4px;display:flex;align-items:center;padding:0 5px;box-sizing:border-box;overflow:hidden" title="' + item.cropName + '（栽培中）">';
+              out += '<span style="font-size:11px;color:' + col + ';font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">📌' + label + '</span>';
+              out += '</div>';
+            } else {
+              var ws = item._warns || [];
+              var warnBorder = ws.length > 0 ? 'box-shadow:0 0 0 2px #dc2626,inset 0 0 0 1px rgba(255,255,255,0.3);' : '';
+              out += '<div style="position:absolute;left:calc(' + lPct + '% + 2px);width:calc(' + wPct + '% - 4px);top:' + top + 'px;height:' + h + 'px;background:' + col + ';border-radius:4px;' + warnBorder + 'display:flex;align-items:center;padding:0 5px;box-sizing:border-box;overflow:hidden;cursor:pointer" onclick="appState.showPlanForm=true;appState.planEditId=\'' + item._pid + '\';appState.planForm=Object.assign({},appState.plans.find(function(x){return x.id===\'' + item._pid + '\';}));render()" title="' + item.cropName + '（計画）- クリックで編集">';
+              out += '<span style="font-size:11px;color:white;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,0.4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + (ws.length>0?'⚠️ ':'') + label + '</span>';
+              out += '</div>';
+            }
+          });
+          out += '</div>'; // grid
+          out += '</div>'; // ridge row
+        });
+        out += '</div>'; // field
+      });
+      out += '</div>';
+      return out;
+    }
+
+    // filterMonth: 0=全期間, 1-12=特定月のみ表示
+    function isActiveInMonth(startMonthStr, endMonthStr, year, filterMonth) {
+      if (!filterMonth) return true;
+      var sm = parseInt((startMonthStr||'').substring(5,7)) || 1;
+      var em = parseInt((endMonthStr||'').substring(5,7)) || 12;
+      var sy = parseInt((startMonthStr||String(year)).substring(0,4)) || year;
+      var ey = parseInt((endMonthStr||String(year)).substring(0,4)) || year;
+      var fd = year * 100 + filterMonth;
+      return (sy * 100 + sm) <= fd && fd <= (ey * 100 + em);
+    }
+
+    function renderPlanMap(year, filterMonth) {
+      var fm = filterMonth || 0;
+      let out = '';
+      FIELDS.forEach(function(field) {
+        var fRidges = RIDGES.filter(function(r){ return r.field === field.id; });
+        var nLabel = field.id===1 ? '🛣️ 北側道路' : '圃場1に繋がっている';
+        var nClass = field.id===1 ? 'bg-gray-500 text-white' : 'bg-blue-300 text-blue-900';
+        var sLabel = field.id===1 ? '圃場2に繋がっている' : '🛣️ 南側道路';
+        var sClass = field.id===1 ? 'bg-blue-300 text-blue-900' : 'bg-gray-500 text-white';
+        out += '<div class="bg-white rounded-xl shadow p-6 mb-8">';
+        out += '<h2 class="font-bold text-lg mb-2">' + field.name + '（' + field.loc + '）</h2>';
+        out += '<div class="flex gap-4 mb-3 text-xs flex-wrap">'
+          + '<div style="display:flex;align-items:center;gap:4px"><div style="width:22px;height:14px;background:#fff;border-left:4px solid #888;border:1px solid #ccc;border-left:4px solid #888;border-radius:2px"></div>&nbsp;📌 栽培中（実績）</div>'
+          + '<div style="display:flex;align-items:center;gap:4px"><div style="width:22px;height:14px;background:#6366f1;border-radius:2px"></div>&nbsp;📅 計画</div>'
+          + '<div style="display:flex;align-items:center;gap:4px"><div style="width:22px;height:14px;border:2px solid #dc2626;border-radius:2px"></div>&nbsp;⚠️ 連作注意</div>'
+          + (fm ? '' : '<div style="background:#fef9c3;border:1px solid #f59e0b;border-radius:4px;padding:2px 8px;color:#92400e;font-weight:bold">⚠️ 全期間：同じ場所の春・秋作が重なって見えます。月を選ぶと正確に表示されます。</div>')
+          + '</div>';
+        out += '<div class="flex mb-2"><div style="width:60px"></div><div class="flex-1 ' + nClass + ' text-center text-xs font-bold py-1 rounded">' + nLabel + '</div><div style="width:60px"></div></div>';
+        out += '<div class="flex gap-2">';
+        out += '<div style="width:60px" class="flex items-center justify-center bg-green-200 rounded text-xs font-bold text-green-800 text-center leading-snug py-2">西<br/>隣接<br/>農地</div>';
+        out += '<div class="flex-1 flex gap-4">';
+        fRidges.forEach(function(ridge) {
+          // 月フィルターで絞り込み
+          var allExisting = getActiveInYear(ridge.id, year);
+          var existing = allExisting.filter(function(e) {
+            if (!fm) return true;
+            var sy = parseInt((e.plantDate||year+'-01').substring(0,4));
+            var sm = parseInt((e.plantDate||year+'-01').substring(5,7)) || 1;
+            var ey = e.harvestDate ? parseInt(e.harvestDate.substring(0,4)) : sy;
+            var em = e.harvestDate ? parseInt(e.harvestDate.substring(5,7)) : 12;
+            var fd = year * 100 + fm;
+            return (sy*100+sm) <= fd && fd <= (ey*100+em);
+          });
+          var rPlans = appState.plans.filter(function(p) {
+            if (p.ridgeId !== ridge.id) return false;
+            return isActiveInMonth(p.startMonth, p.endMonth, year, fm);
+          });
+          var hasWarn = rPlans.some(function(p){ return checkPlanRotation(p).length > 0; });
+          var isEmpty = existing.length === 0 && rPlans.length === 0;
+          out += '<div class="flex-1 rounded overflow-hidden border-2 ' + (hasWarn?'border-red-500':'border-indigo-300') + '" style="min-width:0;display:flex;flex-direction:column">';
+          out += '<div class="text-center text-xs font-bold py-1 ' + (hasWarn?'bg-red-100 text-red-700':'bg-indigo-50 text-indigo-700') + '">畝' + ridge.no + (hasWarn?'<br>⚠':'') + '</div>';
+          out += '<div style="flex:1;background:#f5f3ff;position:relative;min-height:700px">';
+          if (isEmpty) out += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:12px">空き</div>';
+          // 実績と計画を統合して混植対応で描画
+          var mixItems = [];
+          existing.forEach(function(e){ mixItems.push(Object.assign({}, e, {_isExisting: true})); });
+          rPlans.forEach(function(p){ mixItems.push(Object.assign({}, p, {_isExisting: false, _warns: checkPlanRotation(p)})); });
+          out += renderCropSegments(mixItems);
+          out += '</div>';
+          out += '<button onclick="appState.showPlanForm=true;appState.planEditId=null;appState.planForm={ridgeId:\'' + ridge.id + '\',cropName:\'\',cropFamily:\'その他\',from:0,to:100,startMonth:\'' + year + '-04\',endMonth:\'' + year + '-10\',notes:\'\'};render()" class="w-full bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs py-1 font-bold">＋ 計画追加</button>';
+          out += '</div>';
+        });
+        out += '</div>';
+        out += '<div style="width:60px" class="flex items-center justify-center bg-gray-400 rounded text-xs font-bold text-white text-center leading-snug py-2">東<br/>道路<br/>🛣️</div>';
+        out += '</div>';
+        out += '<div class="flex mt-2"><div style="width:60px"></div><div class="flex-1 ' + sClass + ' text-center text-xs font-bold py-1 rounded">' + sLabel + '</div><div style="width:60px"></div></div>';
+        out += '</div>';
+      });
+      return out;
+    }
+
+    function printPlan() {
+      window.print();
+    }
+
+    function saveData() {
+      if (!appState.form.cropName.trim()) {
+        alert("作物名を入力してください");
+        return;
+      }
+      if (!appState.form.plantDate) {
+        alert("植付日を入力してください");
+        return;
+      }
+      if (appState.editId) {
+        appState.plantings = appState.plantings.map(p =>
+          p.id === appState.editId ? {...appState.form, id:appState.editId} : p
+        );
+      } else {
+        appState.plantings.push({...appState.form, id:"p"+Date.now()});
+      }
+      appState.showForm = false;
+      appState.editId = null;
+      const _t = new Date().toISOString().split('T')[0];
+      appState.form = {ridgeId:'F1R1',cropName:'',cropFamily:'その他',variety:'',count:'',from:0,to:100,plantDate:_t,harvestDate:'',year:new Date().getFullYear(),season:'春夏',status:'active',notes:''};
+      autoSave();
+      render();
+    }
+
+    function deleteData(id) {
+      if (confirm("この記録を削除しますか？")) {
+        appState.plantings = appState.plantings.filter(p => p.id !== id);
+        autoSave();
+        render();
+      }
+    }
+
+    async function exportJSON() {
+      const data = {exportDate: new Date().toISOString(), plantings: appState.plantings, plans: appState.plans};
+      const json = JSON.stringify(data, null, 2);
+      const fileName = `farm-plantings-${new Date().toISOString().split('T')[0]}.json`;
+
+      // File System Access API 対応ブラウザ（Chrome等）：保存先を選択できる
+      if (window.showSaveFilePicker) {
+        try {
+          const handle = await window.showSaveFilePicker({
+            suggestedName: fileName,
+            types: [{ description: 'JSONファイル', accept: {'application/json': ['.json']} }]
+          });
+          const writable = await handle.createWritable();
+          await writable.write(json);
+          await writable.close();
+          alert('保存しました。');
+          return;
+        } catch(e) {
+          if (e.name === 'AbortError') return; // キャンセル
+          // 対応していない場合は下のフォールバックへ
+        }
+      }
+      // フォールバック：従来のダウンロード
+      const blob = new Blob([json], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function importJSON(file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const data = JSON.parse(e.target.result);
+          const incoming = Array.isArray(data) ? data : (data.plantings || []);
+          const existingIds = new Set(appState.plantings.map(p => p.id));
+          const newItems = incoming.filter(p => !existingIds.has(p.id));
+          appState.plantings = [...appState.plantings, ...newItems];
+          if (data.plans) {
+            const existingPlanIds = new Set(appState.plans.map(p => p.id));
+            const newPlans = data.plans.filter(p => !existingPlanIds.has(p.id));
+            appState.plans = [...appState.plans, ...newPlans];
+          }
+          autoSave();
+          alert(`読み込み完了：作付け${newItems.length}件を追加しました（重複スキップ${incoming.length - newItems.length}件）`);
+          render();
+        } catch (err) {
+          alert('ファイル形式が不正です。');
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    function render() {
+      const app = document.getElementById('app');
+      const warnings = calculateWarnings();
+      const activeRidges = new Set(warnings.map(w => w.ridgeId));
+      const warnCount = warnings.length;
+
+      let html = `
+        <div class="min-h-screen bg-gray-100">
+          <!-- ヘッダー -->
+          <div class="bg-green-800 text-white px-6 py-4 shadow-lg">
+            <div class="max-w-6xl mx-auto flex justify-between items-center flex-wrap gap-3">
+              <div>
+                <h1 class="text-2xl font-bold">🌾 農園作付け管理システム</h1>
+                <p class="text-green-300 text-sm">圃場2面 × 畝6条 ／ 7,200mm × 9,800mm ／ 畝幅1,200mm・畝間通路400mm</p>
+              </div>
+              ${warnCount > 0 ? `
+              <button onclick="appState.tab='warnings';render()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-bold">
+                ⚠️ 連作警告 ${warnCount}件
+              </button>
+              ` : ''}
+            </div>
+          </div>
+
+          <div class="max-w-6xl mx-auto px-4 py-5">
+            <!-- タブ -->
+            <div class="flex gap-2 mb-5 flex-wrap">
+              <button onclick="appState.tab='map';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='map'?'bg-green-600 text-white':'bg-white text-gray-700'}">📍 圃場マップ</button>
+              <button onclick="appState.tab='input';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='input'?'bg-green-600 text-white':'bg-white text-gray-700'}">🌱 作付け入力</button>
+              <button onclick="appState.tab='history';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='history'?'bg-green-600 text-white':'bg-white text-gray-700'}">📋 作付け履歴</button>
+              <button onclick="appState.tab='warnings';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='warnings'?'bg-green-600 text-white':'bg-white text-gray-700'}">⚠️ 連作警告${warnCount>0?` (${warnCount})`:''}</button>
+              <button onclick="appState.tab='plan';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='plan'?'bg-indigo-600 text-white':'bg-white text-indigo-700 border border-indigo-300'}">📅 作付け計画</button>
+              <button onclick="appState.tab='guide';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='guide'?'bg-green-600 text-white':'bg-white text-gray-700'}">📚 輪作ガイド</button>
+              <button onclick="appState.tab='data';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='data'?'bg-green-600 text-white':'bg-white text-gray-700'}">💾 データ管理</button>
+            </div>
+      `;
+
+      // 圃場マップタブ
+      if (appState.tab === 'map') {
+        const activeRidgeIds = new Set(appState.plantings.filter(p => p.status === 'active').map(p => p.ridgeId));
+        const emptyRidges = RIDGES.filter(r => !activeRidgeIds.has(r.id));
+        const totalRidges = RIDGES.length;
+        html += `
+        <div class="bg-white rounded-xl shadow p-4 mb-4 flex flex-wrap gap-4 items-center">
+          <div class="flex gap-4 flex-wrap flex-1">
+            <div class="text-center px-4 py-2 bg-green-50 rounded-lg">
+              <div class="text-2xl font-bold text-green-700">${activeRidgeIds.size}</div>
+              <div class="text-xs text-gray-500">栽培中の畝</div>
+            </div>
+            <div class="text-center px-4 py-2 bg-amber-50 rounded-lg">
+              <div class="text-2xl font-bold text-amber-600">${emptyRidges.length}</div>
+              <div class="text-xs text-gray-500">空き畝</div>
+            </div>
+            <div class="text-center px-4 py-2 bg-blue-50 rounded-lg">
+              <div class="text-2xl font-bold text-blue-700">${appState.plantings.filter(p=>p.status==='active').length}</div>
+              <div class="text-xs text-gray-500">栽培中の作物</div>
+            </div>
+          </div>
+          ${emptyRidges.length === 0 ? '<div class="text-sm text-green-700 font-bold">✅ 全畝利用中</div>' : ''}
+        </div>
+        `;
+        FIELDS.forEach(field => {
+          const fieldRidges = RIDGES.filter(r => r.field === field.id);
+          html += `
+          <div class="bg-white rounded-xl shadow p-6 mb-8">
+            <h2 class="font-bold text-lg mb-4">${field.name}（${field.loc}）</h2>
+            <div class="flex mb-2"><div style="width:60px"></div><div class="flex-1 ${field.id===1?'bg-gray-500':'bg-blue-300'} text-center text-xs font-bold ${field.id===1?'text-white':'text-blue-900'} py-1 rounded">${field.id===1?'🛣️ 北側道路':'圃場1に繋がっている'}</div><div style="width:60px"></div></div>
+            <div class="flex gap-2">
+              <div style="width:60px" class="flex items-center justify-center bg-green-200 rounded text-xs font-bold text-green-800 text-center leading-snug py-2">西<br/>隣接<br/>農地</div>
+              <div class="flex-1 flex gap-4">
+          `;
+
+          fieldRidges.forEach(ridge => {
+            const crops = appState.plantings.filter(p => p.ridgeId === ridge.id && p.status === 'active');
+            const hasWarn = activeRidges.has(ridge.id);
+            html += `<div class="flex-1 rounded overflow-hidden border-2 ${hasWarn?'border-red-500':'border-gray-300'}" style="min-width:0;display:flex;flex-direction:column">
+              <div class="text-center text-sm font-bold py-2 ${hasWarn?'bg-red-100 text-red-700':'bg-amber-50 text-gray-700'}">
+                畝${ridge.no}${hasWarn?'<div class="text-red-500 text-lg">⚠</div>':''}
+              </div>
+              <div style="flex:1;background:#fef3c7;position:relative;min-height:700px">
+                ${crops.length === 0 ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px">空き</div>' : ''}
+                ${renderCropSegments(crops)}
+              </div>
+              <button onclick="appState.tab='input';appState.showForm=true;appState.form.ridgeId='${ridge.id}';render()" class="w-full bg-green-50 hover:bg-green-100 text-green-700 text-xs py-1 font-bold">＋ 作付け追加</button>
+            </div>`;
+          });
+          html += `
+              </div>
+              <div style="width:60px" class="flex items-center justify-center bg-gray-400 rounded text-xs font-bold text-white text-center leading-snug py-2">東<br/>道路<br/>🛣️</div>
+            </div>
+            <div class="flex mt-2"><div style="width:60px"></div><div class="flex-1 ${field.id===1?'bg-blue-300':'bg-gray-500'} text-center text-xs font-bold ${field.id===1?'text-blue-900':'text-white'} py-1 rounded">${field.id===1?'圃場2に繋がっている':'🛣️ 南側道路'}</div><div style="width:60px"></div></div>
+          </div>
+          `;
+        });
+        html += ``;
+      }
+
+      // 作付け入力タブ
+      if (appState.tab === 'input') {
+        html += `
+          <div>
+            <button onclick="appState.showForm=true;appState.editId=null;appState.form={ridgeId:'F1R1',cropName:'',cropFamily:'その他',variety:'',count:'',from:0,to:100,plantDate:'',harvestDate:'',year:2026,season:'春夏',status:'active',notes:''};render()" class="mb-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700">＋ 新しい作付けを追加</button>
+
+            ${appState.showForm ? `
+            <div class="bg-white rounded-lg shadow p-4 mb-4">
+              <h3 class="text-lg font-bold mb-3">${appState.editId ? '✏️ 作付けを編集' : '新しい作付けを登録'}</h3>
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label class="label">圃場・畝</label>
+                  <select class="input" onchange="appState.form.ridgeId=this.value">
+                    ${RIDGES.map(r => `<option value="${r.id}" ${appState.form.ridgeId===r.id?'selected':''}>${r.field===1?'圃場1':'圃場2'} - 畝${r.no}</option>`).join('')}
+                  </select>
+                </div>
+                <div>
+                  <label class="label">作物名 *</label>
+                  <input class="input" type="text" value="${appState.form.cropName}" onchange="appState.form.cropName=this.value;appState.form.cropFamily=findFamily(this.value);render()" placeholder="トマト"/>
+                </div>
+                <div>
+                  <label class="label">品種</label>
+                  <input class="input" type="text" value="${appState.form.variety||''}" onchange="appState.form.variety=this.value" placeholder="例：桃太郎・春まき用など"/>
+                </div>
+                <div>
+                  <label class="label">株数・本数</label>
+                  <input class="input" type="number" min="0" value="${appState.form.count||''}" onchange="appState.form.count=this.value" placeholder="例：20"/>
+                </div>
+                <div>
+                  <label class="label">作物科目</label>
+                  <div style="display:flex;gap:8px">
+                    <select class="input" onchange="appState.form.cropFamily=this.value">
+                      ${Object.keys(CROP_FAMILIES).map(k => `<option value="${k}" ${appState.form.cropFamily===k?'selected':''}>${k}（${CROP_FAMILIES[k].minYears}年輪作）</option>`).join('')}
+                    </select>
+                    <div style="width:32px;height:36px;background:${CROP_FAMILIES[appState.form.cropFamily]?.color||'#999'};border-radius:8px;flex-shrink:0;align-self:center"></div>
+                  </div>
+                </div>
+                <div>
+                  <label class="label">植付日 *</label>
+                  <input class="input" type="date" value="${appState.form.plantDate}" onchange="appState.form.plantDate=this.value"/>
+                </div>
+                <div>
+                  <label class="label">収穫予定日</label>
+                  <input class="input" type="date" value="${appState.form.harvestDate}" onchange="appState.form.harvestDate=this.value"/>
+                </div>
+                <div>
+                  <label class="label">状態</label>
+                  <select class="input" onchange="appState.form.status=this.value">
+                    <option value="planned" ${appState.form.status==='planned'?'selected':''}>📅 予定</option>
+                    <option value="active" ${appState.form.status==='active'?'selected':''}>🌱 栽培中</option>
+                    <option value="completed" ${appState.form.status==='completed'?'selected':''}>✅ 収穫済</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="label">年度</label>
+                  <input class="input" type="number" value="${appState.form.year}" onchange="appState.form.year=parseInt(this.value)"/>
+                </div>
+                <div>
+                  <label class="label">区間（北=0% 南=100%）</label>
+                  <div style="display:flex;gap:8px;align-items:center">
+                    <input class="input" type="number" min="0" max="99" value="${appState.form.from}" onchange="appState.form.from=parseInt(this.value)" style="flex:1"/>
+                    <span style="font-weight:bold;color:#666">〜</span>
+                    <input class="input" type="number" min="1" max="100" value="${appState.form.to}" onchange="appState.form.to=parseInt(this.value)" style="flex:1"/>
+                    <span style="color:#999;font-size:12px">%</span>
+                  </div>
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="label">メモ（品種・施肥・気づきなど自由記入）</label>
+                  <textarea class="input" rows="3" style="resize:vertical" onchange="appState.form.notes=this.value" placeholder="例：桃太郎・苦土石灰を追加・虫食い注意…">${appState.form.notes||''}</textarea>
+                </div>
+              </div>
+              <div class="flex gap-3 mt-4">
+                <button onclick="saveData()" class="flex-1 btn btn-green">💾 保存</button>
+                <button onclick="appState.showForm=false;render()" class="flex-1 btn btn-gray">キャンセル</button>
+              </div>
+            </div>
+            ` : ''}
+
+            <div class="bg-white rounded-lg shadow p-4">
+              <h3 class="font-bold mb-3">作付け一覧 (${appState.plantings.length}件)</h3>
+              ${appState.plantings.length === 0 ? '<p class="text-gray-500">登録された作付けがありません</p>' : (() => {
+                const FIELD_COLORS = ['#1d4ed8','#15803d'];
+                let out = '';
+                FIELDS.forEach(field => {
+                  const fieldRidges = RIDGES.filter(r => r.field === field.id);
+                  const fieldPlantings = appState.plantings.filter(p => fieldRidges.some(r => r.id === p.ridgeId));
+                  if (fieldPlantings.length === 0) return;
+                  const fcol = FIELD_COLORS[field.id - 1] || '#555';
+                  out += `<div style="margin-bottom:20px">
+                    <div style="background:${fcol};color:white;padding:8px 14px;border-radius:8px 8px 0 0;font-weight:bold;font-size:14px">🌾 ${field.name}（${field.loc}）</div>
+                    <div style="border:2px solid ${fcol};border-top:none;border-radius:0 0 8px 8px;overflow:hidden">`;
+                  fieldRidges.forEach((ridge, ri) => {
+                    const ridgePlantings = appState.plantings.filter(p => p.ridgeId === ridge.id).sort((a,b) => new Date(b.plantDate)-new Date(a.plantDate));
+                    if (ridgePlantings.length === 0) return;
+                    const rowBg = ri % 2 === 0 ? '#f8fafc' : '#f1f5f9';
+                    out += `<div style="background:${rowBg};border-top:1px solid #e2e8f0">
+                      <div style="padding:6px 12px;background:#e2e8f0;display:flex;align-items:center;gap:8px">
+                        <span style="background:${fcol};color:white;padding:2px 10px;border-radius:12px;font-size:13px;font-weight:bold">畝 ${ridge.no}</span>
+                        <span style="font-size:12px;color:#64748b">${ridgePlantings.length}件の作付け</span>
+                      </div>`;
+                    ridgePlantings.forEach(p => {
+                      const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
+                      const statusStyle = p.status==='active' ? 'background:#dcfce7;color:#166534' : p.status==='completed' ? 'background:#dbeafe;color:#1e40af' : 'background:#fef3c7;color:#92400e';
+                      const statusLabel = p.status==='active' ? '🌱 栽培中' : p.status==='completed' ? '✅ 収穫済' : '📅 予定';
+                      out += `<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px dashed #cbd5e1;flex-wrap:wrap">
+                        <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
+                          <div style="width:14px;height:36px;background:${col};border-radius:4px;flex-shrink:0"></div>
+                          <div>
+                            <div style="font-weight:bold;font-size:14px">${p.cropName} <span style="font-size:11px;font-weight:normal;color:#888">${p.cropFamily}</span></div>
+                            <div style="font-size:12px;color:#475569;margin-top:1px">${p.variety ? '🌿 品種：' + p.variety : ''}${p.variety && p.count ? '　' : ''}${p.count ? '🌱 ' + p.count + '株' : ''}</div>
+                            <div style="font-size:12px;color:#64748b;margin-top:2px">🗓️ ${p.plantDate}${p.harvestDate ? ' 〜 ' + p.harvestDate : ''}</div>
+                            <div style="margin-top:4px">
+                              <div style="display:flex;align-items:center;gap:6px">
+                                <span style="font-size:11px;color:#94a3b8;white-space:nowrap">北</span>
+                                <div style="position:relative;flex:1;height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden">
+                                  <div style="position:absolute;left:${p.from}%;width:${p.to - p.from}%;height:100%;background:${(CROP_FAMILIES[p.cropFamily]&&CROP_FAMILIES[p.cropFamily].color)||'#999'};border-radius:5px;opacity:0.85"></div>
+                                </div>
+                                <span style="font-size:11px;color:#94a3b8;white-space:nowrap">南</span>
+                                <span style="font-size:11px;color:#475569;white-space:nowrap;font-weight:bold">${p.from}〜${p.to}%（${p.to - p.from}%使用）</span>
+                              </div>
+                            </div>
+                            ${p.notes ? `<div style="font-size:12px;color:#78716c;margin-top:3px;background:#fafaf9;border-left:3px solid #d6d3d1;padding:2px 6px;border-radius:2px">📝 ${p.notes}</div>` : ''}
+                          </div>
+                          <span style="padding:3px 8px;border-radius:10px;font-size:11px;font-weight:bold;${statusStyle}">${statusLabel}</span>
+                        </div>
+                        <div style="display:flex;gap:6px;flex-shrink:0">
+                          ${p.status !== 'completed' ? `<button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='completed';var d=new Date().toISOString().split('T')[0];if(!appState.plantings[idx].harvestDate)appState.plantings[idx].harvestDate=d;}autoSave();render();})()" style="background:#d1fae5;color:#065f46;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✅ 収穫済</button>` : ''}
+                          <button onclick="appState.editId='${p.id}';appState.showForm=true;appState.form={...appState.plantings.find(x=>x.id==='${p.id}')};render()" style="background:#dbeafe;color:#1e40af;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✏️ 編集</button>
+                          <button onclick="deleteData('${p.id}')" style="background:#fee2e2;color:#991b1b;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">🗑️ 削除</button>
+                        </div>
+                      </div>`;
+                    });
+                    out += `</div>`;
+                  });
+                  out += `</div></div>`;
+                });
+                return out;
+              })()}
+            </div>
+          </div>
+        `;
+      }
+
+      // 作付け履歴タブ
+      if (appState.tab === 'history') {
+        const allYears = [...new Set(appState.plantings.map(p => p.year).filter(Boolean))].sort((a,b) => b - a);
+        const histFilter = appState.historyYear;
+        const filteredPlantings = histFilter === 0
+          ? appState.plantings
+          : appState.plantings.filter(p => p.year === histFilter);
+
+        const groupedByRidge = {};
+        RIDGES.forEach(ridge => {
+          const hist = filteredPlantings.filter(p => p.ridgeId === ridge.id).sort((a,b) => new Date(b.plantDate) - new Date(a.plantDate));
+          if (hist.length > 0) {
+            groupedByRidge[ridge.id] = {ridge, hist, field: FIELDS.find(f => f.id === ridge.field)};
+          }
+        });
+        const ridgeEntries = Object.values(groupedByRidge);
+
+        html += `
+          <div class="bg-white rounded-lg shadow p-4">
+            <div class="flex flex-wrap gap-3 items-center justify-between mb-4">
+              <h3 class="font-bold text-lg">作付け履歴（${filteredPlantings.length}件）</h3>
+              <div class="flex gap-1 flex-wrap">
+                <button onclick="appState.historyYear=0;render()" class="px-3 py-1 rounded text-xs font-bold ${histFilter===0?'bg-green-600 text-white':'bg-gray-100 text-gray-600'}">全年</button>
+                ${allYears.map(y=>`<button onclick="appState.historyYear=${y};render()" class="px-3 py-1 rounded text-xs font-bold ${histFilter===y?'bg-green-600 text-white':'bg-gray-100 text-gray-600'}">${y}年</button>`).join('')}
+              </div>
+            </div>
+            ${filteredPlantings.length === 0 ? '<p class="text-gray-500 text-center py-8">記録がありません</p>' : `<div class="space-y-3">
+              ${ridgeEntries.map((entry, idx) => {
+                const bgColor = idx % 2 === 0 ? '#f9fafb' : '#f3f4f6';
+                return `
+                <div style="border-left:4px solid #16a34a;background:${bgColor};border-radius:8px;padding:16px;overflow-x-auto">
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e5e7eb;padding-bottom:10px">
+                    <p class="font-bold text-lg" style="color:#1f2937;margin:0">${entry.field.name} 畝${entry.ridge.no}</p>
+                    <span style="background:#16a34a;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold">${entry.hist.length}件</span>
+                  </div>
+                  <div style="min-width:600px">
+                    <table style="width:100%;font-size:13px;border-collapse:collapse">
+                      <thead>
+                        <tr style="background:#f0fdf4;border-bottom:2px solid #dcfce7">
+                          <th style="padding:8px;text-align:left;font-weight:bold;color:#166534">作物</th>
+                          <th style="padding:8px;text-align:left;font-weight:bold;color:#166534">科目</th>
+                          <th style="padding:8px;text-align:left;font-weight:bold;color:#166534">植付日</th>
+                          <th style="padding:8px;text-align:left;font-weight:bold;color:#166534">収穫日</th>
+                          <th style="padding:8px;text-align:center;font-weight:bold;color:#166534">状態</th>
+                          <th style="padding:8px;text-align:center;font-weight:bold;color:#166534">操作</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        ${entry.hist.map(p => `
+                        <tr style="border-bottom:1px solid #e5e7eb">
+                          <td style="padding:10px 8px"><span style="background:${CROP_FAMILIES[p.cropFamily].color};color:white;padding:4px 8px;border-radius:4px;font-weight:bold;font-size:12px">${p.cropName}</span></td>
+                          <td style="padding:10px 8px;color:#666">${p.cropFamily}</td>
+                          <td style="padding:10px 8px;color:#666">${p.plantDate}</td>
+                          <td style="padding:10px 8px;color:#666">${p.harvestDate || '—'}</td>
+                          <td style="padding:10px 8px;text-align:center">
+                            <span style="padding:4px 10px;border-radius:4px;font-size:11px;font-weight:bold;${p.status==='active'?'background:#dcfce7;color:#166534':p.status==='completed'?'background:#dbeafe;color:#1e40af':'background:#fef3c7;color:#92400e'}">
+                              ${p.status==='active'?'栽培中':p.status==='completed'?'収穫済':'予定'}
+                            </span>
+                          </td>
+                          <td style="padding:10px 8px;text-align:center;white-space:nowrap">
+                            <button onclick="appState.editId='${p.id}';appState.showForm=true;appState.form={...appState.plantings.find(x=>x.id==='${p.id}')};appState.tab='input';render()" style="background:#3b82f6;color:white;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer;margin-right:4px">編集</button>
+                            <button onclick="deleteData('${p.id}')" style="background:#ef4444;color:white;border:none;padding:4px 10px;border-radius:4px;font-size:12px;cursor:pointer">削除</button>
+                          </td>
+                        </tr>
+                        `).join('')}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+                `;
+              }).join('')}
+            </div>`}
+          </div>
+        `;
+      }
+
+      // 連作警告タブ
+      if (appState.tab === 'warnings') {
+        html += `
+          <div class="space-y-3">
+            ${warnings.length === 0 ? `
+            <div class="bg-white rounded-lg shadow p-10 text-center">
+              <p style="font-size:48px;margin-bottom:12px">✅</p>
+              <p class="text-xl font-bold text-green-700">連作障害の警告はありません</p>
+              <p class="text-gray-500 mt-1">現在の作付け計画は適切な輪作ができています</p>
+            </div>
+            ` : warnings.map(w => `
+            <div class="bg-white rounded-lg shadow p-4 ${w.severity==='critical'?'warning-critical':'warning-alert'}">
+              <div class="flex justify-between items-start mb-2">
+                <h3 class="font-bold text-lg">${w.fieldName} 畝${w.ridgeNo} - ${w.cropName}（${w.cropFamily}）</h3>
+                <span class="text-xs font-bold px-2 py-1 rounded ${w.severity==='critical'?'bg-red-200 text-red-700':'bg-yellow-200 text-yellow-700'}">
+                  ${w.severity==='critical'?'🚨 緊急':'⚠️ 警告'}
+                </span>
+              </div>
+              <p class="text-sm mb-2">${w.message}</p>
+              <div style="background:#f9fafb;padding:12px;border-radius:8px;font-size:12px">
+                <p class="font-bold mb-1">💡 推奨対策：</p>
+                <ul style="list-style:disc;padding-left:20px;color:#666">
+                  <li>別の畝または別の圃場への移動を推奨</li>
+                  <li>同じ畝を使う場合は土壌消毒または深耕（30cm以上）を実施</li>
+                  <li>抵抗性品種・接ぎ木苗の使用を検討</li>
+                  <li>前作に緑肥（麦・マメ科）を導入し土壌改善</li>
+                </ul>
+              </div>
+            </div>
+            `).join('')}
+          </div>
+        `;
+      }
+
+      // 輪作ガイドタブ
+      // 作付け計画タブ
+      if (appState.tab === 'plan') {
+        const year = appState.planYear;
+        const MONTHS = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+        // 計画フォームの警告を事前計算
+        const planFormWarnings = appState.showPlanForm ? checkPlanRotation(appState.planForm) : [];
+
+        html += `
+        <div class="space-y-4 no-print">
+          <!-- 年度選択＋ボタン -->
+          <div class="bg-white rounded-xl shadow p-4 flex flex-wrap gap-4 items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="font-bold text-lg">📅 作付け計画</span>
+              <div class="flex items-center gap-2">
+                <label class="label" style="margin:0">計画年度：</label>
+                <select class="input" style="width:120px" onchange="appState.planYear=parseInt(this.value);render()">
+                  ${Array.from({length:6},(_,i)=>_thisYear-1+i).map(y=>`<option value="${y}" ${year===y?'selected':''}>${y}年</option>`).join('')}
+                </select>
+              </div>
+              <span class="text-sm text-gray-500">${appState.plans.filter(p=>p.startMonth.startsWith(year)).length}件の計画</span>
+            </div>
+            <div class="flex gap-2 flex-wrap">
+              <button onclick="appState.planView='gantt';render()" class="btn ${appState.planView==='gantt'?'btn-blue':'btn-gray'}">📅 カレンダー</button>
+              <button onclick="appState.planView='map';render()" class="btn ${appState.planView==='map'?'btn-blue':'btn-gray'}">🗺️ マップ</button>
+              <button onclick="appState.planView='list';render()" class="btn ${appState.planView==='list'?'btn-blue':'btn-gray'}">📋 一覧</button>
+              <button onclick="appState.showPlanForm=true;appState.planEditId=null;appState.planForm={ridgeId:'F1R1',cropName:'',cropFamily:'その他',from:0,to:100,startMonth:'${year}-04',endMonth:'${year}-10',notes:''};render()" class="btn btn-green">＋ 計画を追加</button>
+              <button onclick="printPlan()" class="btn btn-blue no-print">🖨️ 印刷</button>
+            </div>
+          </div>
+
+          <!-- 計画入力フォーム -->
+          ${appState.showPlanForm ? `
+          <div class="bg-indigo-50 border-2 border-indigo-300 rounded-xl shadow p-5">
+            <h3 class="font-bold text-lg text-indigo-800 mb-4">${appState.planEditId?'計画を編集':'新しい計画を追加'}</h3>
+
+            ${planFormWarnings.length > 0 ? `
+            <div class="mb-4 space-y-2">
+              ${planFormWarnings.map(w=>`
+              <div class="flex items-start gap-2 p-3 rounded-lg ${w.severity==='critical'?'bg-red-100 border border-red-400':'bg-yellow-100 border border-yellow-400'}">
+                <span class="text-lg">${w.severity==='critical'?'🚨':'⚠️'}</span>
+                <span class="text-sm font-semibold ${w.severity==='critical'?'text-red-700':'text-yellow-700'}">${w.message}</span>
+              </div>`).join('')}
+            </div>` : ''}
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="label">圃場・畝</label>
+                <select class="input" onchange="appState.planForm.ridgeId=this.value;render()">
+                  ${RIDGES.map(r=>`<option value="${r.id}" ${appState.planForm.ridgeId===r.id?'selected':''}>${r.field===1?'圃場1':'圃場2'} - 畝${r.no}</option>`).join('')}
+                </select>
+              </div>
+              <div>
+                <label class="label">作物名 *</label>
+                <input class="input" type="text" value="${appState.planForm.cropName}" oninput="appState.planForm.cropName=this.value;const fam=findFamily(this.value);appState.planForm.cropFamily=fam;document.getElementById('planCropFamily').value=fam;document.getElementById('planColorPreview').style.background=CROP_FAMILIES[fam]?.color||'#999'" placeholder="トマト"/>
+              </div>
+              <div>
+                <label class="label">作物科目</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <select class="input" id="planCropFamily" onchange="appState.planForm.cropFamily=this.value;document.getElementById('planColorPreview').style.background=CROP_FAMILIES[this.value]?.color||'#999'">
+                    ${Object.keys(CROP_FAMILIES).map(k=>`<option value="${k}" ${appState.planForm.cropFamily===k?'selected':''}>${k}（${CROP_FAMILIES[k].minYears}年輪作）</option>`).join('')}
+                  </select>
+                  <div id="planColorPreview" style="width:32px;height:36px;background:${CROP_FAMILIES[appState.planForm.cropFamily]?.color||'#999'};border-radius:8px;flex-shrink:0"></div>
+                </div>
+              </div>
+              <div>
+                <label class="label">区間（北=0% 南=100%）</label>
+                <div style="display:flex;gap:8px;align-items:center">
+                  <input class="input" type="number" min="0" max="99" value="${appState.planForm.from}" onchange="appState.planForm.from=parseInt(this.value)" style="flex:1"/> 〜
+                  <input class="input" type="number" min="1" max="100" value="${appState.planForm.to}" onchange="appState.planForm.to=parseInt(this.value)" style="flex:1"/> %
+                </div>
+              </div>
+              <div>
+                <label class="label">作付け開始月 *</label>
+                <input class="input" type="month" value="${appState.planForm.startMonth}" onchange="appState.planForm.startMonth=this.value;render()"/>
+              </div>
+              <div>
+                <label class="label">収穫終了月 *</label>
+                <input class="input" type="month" value="${appState.planForm.endMonth}" onchange="appState.planForm.endMonth=this.value;render()"/>
+              </div>
+              <div class="sm:col-span-2">
+                <label class="label">備考</label>
+                <input class="input" type="text" value="${appState.planForm.notes}" onchange="appState.planForm.notes=this.value" placeholder="品種・数量など"/>
+              </div>
+            </div>
+            <div class="flex gap-3 mt-4">
+              <button onclick="savePlan()" class="flex-1 btn btn-green">💾 保存</button>
+              <button onclick="appState.showPlanForm=false;render()" class="flex-1 btn btn-gray">キャンセル</button>
+            </div>
+          </div>` : ''}
+        </div>
+
+        ${appState.planView === 'map' ? `
+        <div class="bg-white rounded-xl shadow p-3 mb-3 no-print">
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span style="font-size:12px;font-weight:bold;color:#374151;white-space:nowrap">🗓️ 表示月：</span>
+            <button onclick="appState.planMapMonth=0;render()" class="btn ${appState.planMapMonth===0?'btn-blue':'btn-gray'}" style="font-size:11px;padding:3px 8px">全期間</button>
+            ${[1,2,3,4,5,6,7,8,9,10,11,12].map(m=>`<button onclick="appState.planMapMonth=${m};render()" class="btn ${appState.planMapMonth===m?'btn-blue':'btn-gray'}" style="font-size:11px;padding:3px 6px">${m}月</button>`).join('')}
+          </div>
+        </div>
+        ${renderPlanMap(year, appState.planMapMonth)}
+        ` : appState.planView === 'gantt' ? renderPlanGantt(year) : ''}
+
+        <!-- 計画の圃場マップ（印刷対応） -->
+        <div id="planPrint">
+          <div class="print-only" style="text-align:center;margin-bottom:16px">
+            <h1 style="font-size:20px;font-weight:bold">農園 作付け計画書 ${year}年度</h1>
+            <p style="font-size:12px;color:#666">出力日：${new Date().toLocaleDateString('ja-JP')}</p>
+          </div>
+
+          ${appState.planView !== 'list' ? '' : FIELDS.map(field => {
+            const fieldRidges = RIDGES.filter(r => r.field === field.id);
+            return `
+            <div class="bg-white rounded-xl shadow p-5 mb-6">
+              <h3 class="font-bold text-lg mb-3 text-green-800">${field.name}（${field.loc}）</h3>
+              <div class="space-y-4">
+                ${fieldRidges.map(ridge => {
+                  // 年を跨ぐ実績データ
+                  const existing = getActiveInYear(ridge.id, year);
+                  // 今年の計画
+                  const ridgePlans = appState.plans.filter(p => p.ridgeId === ridge.id);
+                  const allItems = [...existing.map(e=>({...e, type:'existing'})), ...ridgePlans.map(p=>({...p, type:'plan'}))];
+                  const hasWarn = ridgePlans.some(p => checkPlanRotation(p).length > 0);
+
+                  return `
+                  <div style="border-left:4px solid ${hasWarn?'#dc2626':'#6366f1'};background:${hasWarn?'#fff5f5':'#f5f3ff'};border-radius:8px;padding:16px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid #e5e7eb">
+                      <span class="font-bold" style="color:#1f2937">${field.name} 畝${ridge.no}</span>
+                      <div style="display:flex;gap:8px">
+                        ${hasWarn ? '<span style="background:#fee2e2;color:#dc2626;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold">⚠️ 連作注意</span>' : '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:12px;font-size:11px;font-weight:bold">✅ 問題なし</span>'}
+                        <button onclick="appState.showPlanForm=true;appState.planEditId=null;appState.planForm={ridgeId:'${ridge.id}',cropName:'',cropFamily:'その他',from:0,to:100,startMonth:'${year}-04',endMonth:'${year}-10',notes:''};render()" style="background:#6366f1;color:white;border:none;padding:4px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold" class="no-print">＋ 追加</button>
+                      </div>
+                    </div>
+
+                    ${allItems.length === 0 ? '<p style="color:#999;font-size:13px">計画なし（空き）</p>' : `
+                    <div style="display:flex;flex-wrap:wrap;gap:8px">
+                      ${existing.map(e=>`
+                      <div style="background:#e0f2fe;border:2px solid #38bdf8;border-radius:8px;padding:8px 12px;font-size:12px">
+                        <div style="font-size:10px;color:#0369a1;font-weight:bold;margin-bottom:2px">📌 栽培中（実績）</div>
+                        <div style="font-weight:bold;color:#1e40af">${e.cropName}</div>
+                        <div style="font-size:11px;color:#555">${e.plantDate}〜${e.harvestDate||'収穫未定'}</div>
+                        <div style="font-size:10px;margin-top:2px"><span style="background:${CROP_FAMILIES[e.cropFamily]?.color||'#999'};color:white;padding:1px 5px;border-radius:3px">${e.cropFamily}</span> 区間:${e.from}〜${e.to}%</div>
+                      </div>`).join('')}
+                      ${ridgePlans.map(p=>{
+                        const warns = checkPlanRotation(p);
+                        return `
+                        <div style="background:${warns.length>0?'#fff1f2':'#f0fdf4'};border:2px solid ${warns.length>0?'#fda4af':'#86efac'};border-radius:8px;padding:8px 12px;font-size:12px;position:relative">
+                          <div style="font-size:10px;color:${warns.length>0?'#e11d48':'#16a34a'};font-weight:bold;margin-bottom:2px">${warns.length>0?'⚠️ 計画（警告あり）':'✅ 計画'}</div>
+                          <div style="font-weight:bold;color:#1f2937">${p.cropName}</div>
+                          <div style="font-size:11px;color:#555">${p.startMonth}〜${p.endMonth}</div>
+                          <div style="font-size:10px;margin-top:2px"><span style="background:${CROP_FAMILIES[p.cropFamily]?.color||'#999'};color:white;padding:1px 5px;border-radius:3px">${p.cropFamily}</span> 区間:${p.from}〜${p.to}%</div>
+                          ${p.notes?`<div style="font-size:10px;color:#666;margin-top:3px">📝 ${p.notes}</div>`:''}
+                          ${warns.map(w=>`<div style="font-size:10px;color:${w.severity==='critical'?'#dc2626':'#d97706'};margin-top:3px">${w.severity==='critical'?'🚨':'⚠️'} ${w.message}</div>`).join('')}
+                          <div style="display:flex;gap:4px;margin-top:6px;flex-wrap:wrap" class="no-print">
+                            <button onclick="convertPlanToPlanting('${p.id}')" style="background:#16a34a;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">🌱 実績へ</button>
+                            <button onclick="appState.showPlanForm=true;appState.planEditId='${p.id}';appState.planForm={...appState.plans.find(x=>x.id==='${p.id}')};render()" style="background:#6366f1;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">編集</button>
+                            <button onclick="deletePlan('${p.id}')" style="background:#ef4444;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">削除</button>
+                          </div>
+                        </div>`;
+                      }).join('')}
+                    </div>`}
+                  </div>`;
+                }).join('')}
+              </div>
+            </div>`;
+          }).join('')}
+
+          <!-- 計画サマリーテーブル -->
+          <div class="bg-white rounded-xl shadow p-5 mt-4">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+              <h3 class="font-bold text-lg">📋 ${year}年度 作付け計画 一覧表</h3>
+              <div class="flex gap-2 no-print">
+                <button onclick="appState.planListSort='ridge';render()" class="btn ${appState.planListSort==='ridge'?'btn-blue':'btn-gray'}" style="font-size:12px;padding:5px 12px">🌾 畝別</button>
+                <button onclick="appState.planListSort='time';render()" class="btn ${appState.planListSort==='time'?'btn-blue':'btn-gray'}" style="font-size:12px;padding:5px 12px">🗓️ 時系列</button>
+              </div>
+            </div>
+
+            ${appState.plans.length === 0 ? '<p class="text-gray-500">計画がありません</p>' : (() => {
+              // 共通：テーブルヘッダー＋行レンダラー
+              const thStyle = 'padding:8px 10px;text-align:left;font-size:12px;white-space:nowrap';
+              const tdStyle = 'padding:8px 10px;font-size:12px';
+              const thead = `<tr style="background:#6366f1;color:white">
+                <th style="${thStyle}">作物名</th>
+                <th style="${thStyle}">科目</th>
+                <th style="${thStyle}">開始月</th>
+                <th style="${thStyle}">終了月</th>
+                <th style="${thStyle}">区間</th>
+                <th style="${thStyle}">連作</th>
+                <th style="${thStyle}">備考</th>
+                <th style="${thStyle}" class="no-print">操作</th>
+              </tr>`;
+              const planRow = (p, bg) => {
+                const warns = checkPlanRotation(p);
+                const rowBg = warns.length>0 ? '#fff5f5' : bg;
+                return `<tr style="border-bottom:1px solid #e5e7eb;background:${rowBg}">
+                  <td style="${tdStyle}"><span style="background:${CROP_FAMILIES[p.cropFamily]?.color||'#999'};color:white;padding:3px 8px;border-radius:4px;font-weight:bold">${p.cropName}</span></td>
+                  <td style="${tdStyle};color:#555">${p.cropFamily}</td>
+                  <td style="${tdStyle};color:#555">${p.startMonth}</td>
+                  <td style="${tdStyle};color:#555">${p.endMonth}</td>
+                  <td style="${tdStyle};color:#555;text-align:center">${p.from}〜${p.to}%</td>
+                  <td style="${tdStyle};text-align:center">${warns.length===0?'<span style="color:#16a34a;font-weight:bold;font-size:14px">✅</span>':warns.map(w=>`<div style="font-size:10px;color:${w.severity==='critical'?'#dc2626':'#d97706'}">${w.severity==='critical'?'🚨':'⚠️'}</div>`).join('')}</td>
+                  <td style="${tdStyle};color:#666;font-size:11px">${p.notes||'—'}</td>
+                  <td style="${tdStyle}" class="no-print"><div style="display:flex;gap:4px;flex-wrap:wrap">
+                    <button onclick="convertPlanToPlanting('${p.id}')" style="background:#16a34a;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">🌱 実績へ</button>
+                    <button onclick="appState.showPlanForm=true;appState.planEditId='${p.id}';appState.planForm={...appState.plans.find(x=>x.id==='${p.id}')};render()" style="background:#6366f1;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">編集</button>
+                    <button onclick="deletePlan('${p.id}')" style="background:#ef4444;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">削除</button>
+                  </div></td>
+                </tr>`;
+              };
+
+              if (appState.planListSort === 'ridge') {
+                // ── 畝別 ──
+                return RIDGES.map(ridge => {
+                  const rPlans = appState.plans.filter(p => p.ridgeId === ridge.id)
+                                               .sort((a,b) => (a.startMonth||'').localeCompare(b.startMonth||''));
+                  if (rPlans.length === 0) return '';
+                  const field = FIELDS.find(f => f.id === ridge.field);
+                  const hasWarn = rPlans.some(p => checkPlanRotation(p).length > 0);
+                  return `<div style="margin-bottom:16px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;background:${hasWarn?'#fee2e2':'#ede9fe'};border-left:5px solid ${hasWarn?'#dc2626':'#6366f1'};padding:8px 12px;border-radius:4px 4px 0 0">
+                      <span style="font-weight:bold;font-size:13px;color:${hasWarn?'#dc2626':'#4338ca'}">${field.name} 畝${ridge.no}${hasWarn?' ⚠️ 連作注意':' ✅'}</span>
+                      <span style="font-size:11px;color:#666">${rPlans.length}件</span>
+                    </div>
+                    <div style="overflow-x:auto;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 4px 4px">
+                      <table style="width:100%;border-collapse:collapse">${thead}
+                        <tbody>${rPlans.map((p,i) => planRow(p, i%2===0?'#f9fafb':'white')).join('')}</tbody>
+                      </table>
+                    </div>
+                  </div>`;
+                }).join('');
+
+              } else {
+                // ── 時系列 ──
+                const sorted = [...appState.plans].sort((a,b) => (a.startMonth||'').localeCompare(b.startMonth||''));
+                // 開始月でグループ化
+                const groups = {};
+                sorted.forEach(p => {
+                  const key = p.startMonth || '未設定';
+                  if (!groups[key]) groups[key] = [];
+                  groups[key].push(p);
+                });
+                return Object.entries(groups).map(([month, plans]) => {
+                  return `<div style="margin-bottom:16px">
+                    <div style="background:#0f172a;color:#e2e8f0;padding:8px 14px;border-radius:4px 4px 0 0;font-weight:bold;font-size:13px">🗓️ ${month} 開始（${plans.length}件）</div>
+                    <div style="overflow-x:auto;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 4px 4px">
+                      <table style="width:100%;border-collapse:collapse">
+                        <tr style="background:#6366f1;color:white">
+                          <th style="${thStyle}">圃場・畝</th>
+                          <th style="${thStyle}">作物名</th>
+                          <th style="${thStyle}">科目</th>
+                          <th style="${thStyle}">終了月</th>
+                          <th style="${thStyle}">区間</th>
+                          <th style="${thStyle}">連作</th>
+                          <th style="${thStyle}">備考</th>
+                          <th style="${thStyle}" class="no-print">操作</th>
+                        </tr>
+                        <tbody>${plans.map((p,i) => {
+                          const ridge = RIDGES.find(r=>r.id===p.ridgeId);
+                          const field = FIELDS.find(f=>f.id===ridge.field);
+                          const warns = checkPlanRotation(p);
+                          const rowBg = warns.length>0 ? '#fff5f5' : i%2===0?'#f9fafb':'white';
+                          return `<tr style="border-bottom:1px solid #e5e7eb;background:${rowBg}">
+                            <td style="${tdStyle};font-weight:bold">${field.name} 畝${ridge.no}</td>
+                            <td style="${tdStyle}"><span style="background:${CROP_FAMILIES[p.cropFamily]?.color||'#999'};color:white;padding:3px 8px;border-radius:4px;font-weight:bold">${p.cropName}</span></td>
+                            <td style="${tdStyle};color:#555">${p.cropFamily}</td>
+                            <td style="${tdStyle};color:#555">${p.endMonth}</td>
+                            <td style="${tdStyle};color:#555;text-align:center">${p.from}〜${p.to}%</td>
+                            <td style="${tdStyle};text-align:center">${warns.length===0?'<span style="color:#16a34a;font-weight:bold;font-size:14px">✅</span>':warns.map(w=>`<div style="font-size:10px;color:${w.severity==='critical'?'#dc2626':'#d97706'}">${w.severity==='critical'?'🚨':'⚠️'}</div>`).join('')}</td>
+                            <td style="${tdStyle};color:#666;font-size:11px">${p.notes||'—'}</td>
+                            <td style="${tdStyle}" class="no-print"><div style="display:flex;gap:4px;flex-wrap:wrap">
+                              <button onclick="convertPlanToPlanting('${p.id}')" style="background:#16a34a;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">🌱 実績へ</button>
+                              <button onclick="appState.showPlanForm=true;appState.planEditId='${p.id}';appState.planForm={...appState.plans.find(x=>x.id==='${p.id}')};render()" style="background:#6366f1;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">編集</button>
+                              <button onclick="deletePlan('${p.id}')" style="background:#ef4444;color:white;border:none;padding:2px 8px;border-radius:4px;font-size:11px;cursor:pointer">削除</button>
+                            </div></td>
+                          </tr>`;
+                        }).join('')}</tbody>
+                      </table>
+                    </div>
+                  </div>`;
+                }).join('');
+              }
+            })()}
+          </div>
+        </div>
+        `;
+      }
+
+      // 輪作ガイドタブ
+      if (appState.tab === 'guide') {
+        html += `
+          <div class="space-y-4">
+            <div class="bg-white rounded-lg shadow p-4">
+              <h3 class="font-bold text-lg mb-3">📚 作物科目別 輪作基準一覧</h3>
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                  <thead>
+                    <tr class="bg-green-700 text-white">
+                      <th class="px-3 py-2 text-left">科目</th>
+                      <th class="px-3 py-2 text-center">輪作年数</th>
+                      <th class="px-3 py-2 text-left">代表的な野菜</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${Object.entries(CROP_FAMILIES).filter(([k])=>k!=='その他').map(([fam,d])=>`
+                    <tr class="border-b hover:bg-gray-50">
+                      <td class="px-3 py-2 font-semibold"><div style="display:flex;align-items:center;gap:8px"><div style="width:12px;height:12px;background:${d.color};border-radius:4px"></div>${fam}</div></td>
+                      <td class="px-3 py-2 text-center"><span style="background:${d.minYears>=4?'#fee2e2':d.minYears>=3?'#fef3c7':'#fce7f3'};color:${d.minYears>=4?'#991b1b':d.minYears>=3?'#92400e':'#831843'};padding:4px 8px;border-radius:4px;font-size:12px;font-weight:bold">${d.minYears}年以上</span></td>
+                      <td class="px-3 py-2 text-gray-600 text-xs">${d.crops.join("、")}</td>
+                    </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-4">
+              <h3 class="font-bold text-lg mb-2">❓ 連作障害とは？</h3>
+              <p class="text-sm text-gray-700 mb-2">
+                同じ作物や同じ科目の野菜を続けて同じ圃場に植えると、土中の病害虫（フザリウム菌・センチュウなど）が増殖したり、特定の養分が欠乏したりすることで生育不良が生じます。
+              </p>
+              <p style="font-size:13px;color:#666"><strong>主な症状：</strong>発芽不良・枯死・萎凋・根こぶ・収量低下など</p>
+              <p style="font-size:13px;color:#666"><strong>対策の基本：</strong>輪作（異なる科目を順番に植える）を徹底することが最も有効です。</p>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-4">
+              <h3 class="font-bold text-lg mb-4">📋 畝別 作付け履歴</h3>
+              <div class="space-y-3">
+                ${RIDGES.map((ridge, idx)=>{
+                  const field = FIELDS.find(f=>f.id===ridge.field);
+                  const hist = appState.plantings.filter(p=>p.ridgeId===ridge.id).sort((a,b)=>b.year-a.year);
+                  const bgColor = idx % 2 === 0 ? '#f9fafb' : '#f3f4f6';
+                  return `
+                  <div style="border-left:4px solid #16a34a;background:${bgColor};border-radius:8px;padding:16px">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;border-bottom:2px solid #e5e7eb;padding-bottom:10px">
+                      <p class="font-bold text-lg" style="color:#1f2937;margin:0">${field.name} 畝${ridge.no}</p>
+                      <span style="background:#16a34a;color:white;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:bold">${hist.length}件</span>
+                    </div>
+                    ${hist.length===0?'<span style="color:#999;font-size:13px">記録なし</span>':`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px">
+                      ${hist.map(p=>{
+                        const startDate = p.plantDate ? p.plantDate.substring(5) : '?';
+                        const endDate = p.harvestDate ? p.harvestDate.substring(5) : '現在';
+                        return `<div style="background:${CROP_FAMILIES[p.cropFamily].color};color:white;padding:10px;border-radius:6px;font-size:11px;font-weight:bold;text-align:center;line-height:1.5;box-shadow:0 2px 4px rgba(0,0,0,0.1)"><div style="font-size:10px;opacity:0.9;margin-bottom:4px">${startDate}〜${endDate}</div><div style="font-size:12px">${p.cropName}</div></div>`;
+                      }).join('')}
+                    </div>`}
+                  </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      // データ管理タブ
+      if (appState.tab === 'data') {
+        html += `
+          <div class="space-y-4">
+            <div class="bg-white rounded-lg shadow p-4">
+              <h3 class="font-bold text-lg mb-4">💾 データの保存・読み込み</h3>
+
+              <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-4">
+                <h4 class="font-bold text-green-800 mb-2">📥 データをファイルに保存</h4>
+                <p class="text-sm text-gray-700 mb-3">現在の作付け情報をJSON形式で保存します。</p>
+                <button onclick="exportJSON()" class="btn btn-green">📥 JSONファイルで保存</button>
+              </div>
+
+              <div class="bg-blue-50 border-2 border-blue-300 rounded-lg p-4">
+                <h4 class="font-bold text-blue-800 mb-2">📤 ファイルから読み込み</h4>
+                <p class="text-sm text-gray-700 mb-3">保存済みのJSONファイルを選択して復元します。</p>
+                <input type="file" id="fileInput" accept=".json" onchange="importJSON(this.files[0])" class="input" style="cursor:pointer"/>
+              </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-4">
+              <h3 class="font-bold text-lg mb-3">📊 データ統計</h3>
+              <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                <div class="bg-blue-50 rounded-lg p-4 text-center">
+                  <p class="text-xs text-gray-600 mb-1">作付け記録数</p>
+                  <p class="text-2xl font-bold text-blue-700">${appState.plantings.length}</p>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4 text-center">
+                  <p class="text-xs text-gray-600 mb-1">栽培中・予定</p>
+                  <p class="text-2xl font-bold text-green-700">${appState.plantings.filter(p=>p.status==='active'||p.status==='planned').length}</p>
+                </div>
+                <div class="bg-purple-50 rounded-lg p-4 text-center">
+                  <p class="text-xs text-gray-600 mb-1">収穫済み</p>
+                  <p class="text-2xl font-bold text-purple-700">${appState.plantings.filter(p=>p.status==='completed').length}</p>
+                </div>
+                <div class="bg-red-50 rounded-lg p-4 text-center">
+                  <p class="text-xs text-gray-600 mb-1">連作警告</p>
+                  <p class="text-2xl font-bold text-red-700">${warnings.length}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      html += `</div></div>`;
+      app.innerHTML = html;
+    }
+
+    // 初期表示
+    render();
+  </script>
+</body>
+</html>
