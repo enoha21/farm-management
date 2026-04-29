@@ -1036,7 +1036,7 @@
                   ${Array.from({length:6},(_,i)=>_thisYear-1+i).map(y=>`<option value="${y}" ${year===y?'selected':''}>${y}年</option>`).join('')}
                 </select>
               </div>
-              <span class="text-sm text-gray-500">${appState.plans.filter(p=>p.startMonth.startsWith(year)).length}件の計画</span>
+              <span class="text-sm text-gray-500">${appState.plans.filter(p=>p.startMonth && p.startMonth.startsWith(String(year))).length}件の計画</span>
             </div>
             <div class="flex gap-2 flex-wrap">
               <button onclick="appState.planView='gantt';render()" class="btn ${appState.planView==='gantt'?'btn-blue':'btn-gray'}">📅 カレンダー</button>
