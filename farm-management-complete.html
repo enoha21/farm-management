@@ -555,6 +555,77 @@
       window.print();
     }
 
+    // 年間月別マップ：12ヶ月を一覧カード表示
+    function renderMonthlyOverview(year) {
+      var MONTHS_JA = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+      var out = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px">';
+
+      for (var m = 1; m <= 12; m++) {
+        // その月にアクティブな計画を収集
+        var monthPlans = appState.plans.filter(function(p) {
+          return isActiveInMonth(p.startMonth, p.endMonth, year, m);
+        });
+        // その月にアクティブな実績を収集
+        var fd = year * 100 + m;
+        var monthExisting = appState.plantings.filter(function(e) {
+          if (e.status !== 'active') return false;
+          var sy = parseInt((e.plantDate||year+'-01').substring(0,4));
+          var sm2 = parseInt((e.plantDate||year+'-01').substring(5,7)) || 1;
+          var ey = e.harvestDate ? parseInt(e.harvestDate.substring(0,4)) : sy;
+          var em2 = e.harvestDate ? parseInt(e.harvestDate.substring(5,7)) : 12;
+          return (sy*100+sm2) <= fd && fd <= (ey*100+em2);
+        });
+        var totalItems = monthPlans.length + monthExisting.length;
+        var isCurrentMonth = (new Date().getFullYear() === year && new Date().getMonth()+1 === m);
+
+        out += '<div onclick="appState.planMapMonth=' + m + ';appState.planView=\'map\';render()" style="background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.1);padding:10px;cursor:pointer;border:2px solid ' + (isCurrentMonth?'#16a34a':'transparent') + ';transition:box-shadow 0.15s" onmouseover="this.style.boxShadow=\'0 4px 12px rgba(0,0,0,0.15)\'" onmouseout="this.style.boxShadow=\'0 1px 4px rgba(0,0,0,0.1)\'">';
+        out += '<div style="font-weight:bold;font-size:13px;color:' + (isCurrentMonth?'#16a34a':'#1f2937') + ';margin-bottom:7px;display:flex;justify-content:space-between;align-items:center">';
+        out += '<span>' + MONTHS_JA[m-1] + '</span>';
+        out += '<span style="font-size:10px;font-weight:normal;color:#9ca3af">' + (totalItems > 0 ? totalItems + '作物' : '空き') + '</span>';
+        out += '</div>';
+
+        // 各圃場の畝を小さい色付きバーで表示
+        FIELDS.forEach(function(field) {
+          var fRidges = RIDGES.filter(function(r){ return r.field === field.id; });
+          out += '<div style="margin-bottom:5px">';
+          out += '<div style="font-size:9px;color:#9ca3af;margin-bottom:2px">' + field.name + '</div>';
+          out += '<div style="display:flex;gap:2px;height:28px">';
+          fRidges.forEach(function(ridge) {
+            var rPlans = monthPlans.filter(function(p){ return p.ridgeId === ridge.id; });
+            var rExist = monthExisting.filter(function(e){ return e.ridgeId === ridge.id; });
+            var bgColor = '#f1f5f9';
+            var borderLeft = 'none';
+            var titleText = '畝' + ridge.no + '：空き';
+
+            if (rExist.length > 0) {
+              var col = (CROP_FAMILIES[rExist[0].cropFamily] && CROP_FAMILIES[rExist[0].cropFamily].color) || '#999';
+              bgColor = '#fff';
+              borderLeft = '4px solid ' + col;
+              titleText = '畝' + ridge.no + '：' + rExist[0].cropName + '（栽培中）';
+            } else if (rPlans.length > 0) {
+              var col = (CROP_FAMILIES[rPlans[0].cropFamily] && CROP_FAMILIES[rPlans[0].cropFamily].color) || '#999';
+              bgColor = col;
+              titleText = '畝' + ridge.no + '：' + rPlans[0].cropName + '（計画）';
+            }
+
+            out += '<div style="flex:1;background:' + bgColor + ';border-radius:3px;border-left:' + borderLeft + ';border:' + (rPlans.length===0&&rExist.length===0?'1px solid #e5e7eb':'none') + ';border-left:' + borderLeft + '" title="' + titleText + '"></div>';
+          });
+          out += '</div></div>';
+        });
+
+        // 凡例（その月の作物名）
+        if (totalItems > 0) {
+          var names = [];
+          monthExisting.forEach(function(e){ if(names.indexOf(e.cropName)<0) names.push('📌'+e.cropName); });
+          monthPlans.forEach(function(p){ if(names.indexOf(p.cropName)<0) names.push(p.cropName); });
+          out += '<div style="font-size:9px;color:#6b7280;margin-top:5px;line-height:1.5;border-top:1px solid #f3f4f6;padding-top:4px">' + names.slice(0,4).join('・') + (names.length>4?'…':'') + '</div>';
+        }
+        out += '</div>'; // month card
+      }
+      out += '</div>';
+      return out;
+    }
+
     function saveData() {
       if (!appState.form.cropName.trim()) {
         alert("作物名を入力してください");
@@ -1025,8 +1096,9 @@
               <span class="text-sm text-gray-500">${appState.plans.filter(p=>p.startMonth && p.startMonth.startsWith(String(year))).length}件の計画</span>
             </div>
             <div class="flex gap-2 flex-wrap">
+              <button onclick="appState.planView='monthly';render()" class="btn ${appState.planView==='monthly'?'btn-blue':'btn-gray'}">📆 年間マップ</button>
               <button onclick="appState.planView='gantt';render()" class="btn ${appState.planView==='gantt'?'btn-blue':'btn-gray'}">📅 カレンダー</button>
-              <button onclick="appState.planView='map';render()" class="btn ${appState.planView==='map'?'btn-blue':'btn-gray'}">🗺️ マップ</button>
+              <button onclick="appState.planView='map';render()" class="btn ${appState.planView==='map'?'btn-blue':'btn-gray'}">🗺️ 月別マップ</button>
               <button onclick="appState.planView='list';render()" class="btn ${appState.planView==='list'?'btn-blue':'btn-gray'}">📋 一覧</button>
               <button onclick="appState.showPlanForm=true;appState.planEditId=null;appState.planForm={ridgeId:'F1R1',cropName:'',cropFamily:'その他',from:0,to:100,startMonth:'${year}-04',endMonth:'${year}-10',notes:''};render()" class="btn btn-green">＋ 計画を追加</button>
               <button onclick="printPlan()" class="btn btn-blue no-print">🖨️ 印刷</button>
@@ -1094,7 +1166,12 @@
           </div>` : ''}
         </div>
 
-        ${appState.planView === 'map' ? `
+        ${appState.planView === 'monthly' ? `
+        <div class="bg-gray-50 rounded-xl p-4">
+          <p class="text-xs text-gray-500 mb-3">カードをクリックすると月別マップで詳細表示します。緑枠は今月。</p>
+          ${renderMonthlyOverview(year)}
+        </div>
+        ` : appState.planView === 'map' ? `
         <div class="bg-white rounded-xl shadow p-3 mb-3 no-print">
           <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
             <span style="font-size:12px;font-weight:bold;color:#374151;white-space:nowrap">🗓️ 表示月：</span>
