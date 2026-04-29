@@ -329,7 +329,7 @@
         count: '',
         from: plan.from,
         to: plan.to,
-        plantDate: plan.startMonth ? plan.startMonth + '-01' : '',
+        plantDate: new Date().toISOString().split('T')[0],
         harvestDate: plan.endMonth ? plan.endMonth + '-28' : '',
         year: startYear,
         season: season,
