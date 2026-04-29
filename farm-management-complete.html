@@ -201,7 +201,7 @@
           p.id !== active.id &&
           p.ridgeId === active.ridgeId &&
           p.cropFamily === fam &&
-          p.status === 'completed' &&
+          (p.status === 'completed' || p.status === 'failed') &&
           (currentYear - p.year) > 0 &&
           (currentYear - p.year) < minYears
         );
@@ -255,7 +255,7 @@
       const pastSame = appState.plantings.filter(p =>
         p.ridgeId === plan.ridgeId &&
         p.cropFamily === fam &&
-        (p.status === 'completed' || p.status === 'active')
+        (p.status === 'completed' || p.status === 'active' || p.status === 'failed')
       );
       pastSame.forEach(p => {
         const gap = planStartYear - p.year;
@@ -795,6 +795,7 @@
                     <option value="planned" ${appState.form.status==='planned'?'selected':''}>📅 予定</option>
                     <option value="active" ${appState.form.status==='active'?'selected':''}>🌱 栽培中</option>
                     <option value="completed" ${appState.form.status==='completed'?'selected':''}>✅ 収穫済</option>
+                    <option value="failed" ${appState.form.status==='failed'?'selected':''}>❌ 失敗</option>
                   </select>
                 </div>
                 <div>
@@ -846,8 +847,8 @@
                       </div>`;
                     ridgePlantings.forEach(p => {
                       const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
-                      const statusStyle = p.status==='active' ? 'background:#dcfce7;color:#166534' : p.status==='completed' ? 'background:#dbeafe;color:#1e40af' : 'background:#fef3c7;color:#92400e';
-                      const statusLabel = p.status==='active' ? '🌱 栽培中' : p.status==='completed' ? '✅ 収穫済' : '📅 予定';
+                      const statusStyle = p.status==='active' ? 'background:#dcfce7;color:#166534' : p.status==='completed' ? 'background:#dbeafe;color:#1e40af' : p.status==='failed' ? 'background:#f1f5f9;color:#475569' : 'background:#fef3c7;color:#92400e';
+                      const statusLabel = p.status==='active' ? '🌱 栽培中' : p.status==='completed' ? '✅ 収穫済' : p.status==='failed' ? '❌ 失敗' : '📅 予定';
                       out += `<div style="padding:10px 14px;display:flex;justify-content:space-between;align-items:center;gap:8px;border-top:1px dashed #cbd5e1;flex-wrap:wrap">
                         <div style="display:flex;align-items:center;gap:10px;flex:1;min-width:0">
                           <div style="width:14px;height:36px;background:${col};border-radius:4px;flex-shrink:0"></div>
@@ -870,7 +871,10 @@
                           <span style="padding:3px 8px;border-radius:10px;font-size:11px;font-weight:bold;${statusStyle}">${statusLabel}</span>
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0">
-                          ${p.status !== 'completed' ? `<button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='completed';var d=new Date().toISOString().split('T')[0];if(!appState.plantings[idx].harvestDate)appState.plantings[idx].harvestDate=d;}autoSave();render();})()" style="background:#d1fae5;color:#065f46;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✅ 収穫済</button>` : ''}
+                          ${p.status === 'active' || p.status === 'planned' ? `
+                            <button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='completed';var d=new Date().toISOString().split('T')[0];if(!appState.plantings[idx].harvestDate)appState.plantings[idx].harvestDate=d;}autoSave();render();})()" style="background:#d1fae5;color:#065f46;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✅ 収穫済</button>
+                            <button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='failed';}autoSave();render();})()" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">❌ 失敗</button>
+                          ` : ''}
                           <button onclick="appState.editId='${p.id}';appState.showForm=true;appState.form={...appState.plantings.find(x=>x.id==='${p.id}')};render()" style="background:#dbeafe;color:#1e40af;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✏️ 編集</button>
                           <button onclick="deleteData('${p.id}')" style="background:#fee2e2;color:#991b1b;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">🗑️ 削除</button>
                         </div>
@@ -942,8 +946,8 @@
                           <td style="padding:10px 8px;color:#666">${p.plantDate}</td>
                           <td style="padding:10px 8px;color:#666">${p.harvestDate || '—'}</td>
                           <td style="padding:10px 8px;text-align:center">
-                            <span style="padding:4px 10px;border-radius:4px;font-size:11px;font-weight:bold;${p.status==='active'?'background:#dcfce7;color:#166534':p.status==='completed'?'background:#dbeafe;color:#1e40af':'background:#fef3c7;color:#92400e'}">
-                              ${p.status==='active'?'栽培中':p.status==='completed'?'収穫済':'予定'}
+                            <span style="padding:4px 10px;border-radius:4px;font-size:11px;font-weight:bold;${p.status==='active'?'background:#dcfce7;color:#166534':p.status==='completed'?'background:#dbeafe;color:#1e40af':p.status==='failed'?'background:#f1f5f9;color:#475569':'background:#fef3c7;color:#92400e'}">
+                              ${p.status==='active'?'栽培中':p.status==='completed'?'収穫済':p.status==='failed'?'❌ 失敗':'予定'}
                             </span>
                           </td>
                           <td style="padding:10px 8px;text-align:center;white-space:nowrap">
@@ -1385,6 +1389,10 @@
                 <div class="bg-purple-50 rounded-lg p-4 text-center">
                   <p class="text-xs text-gray-600 mb-1">収穫済み</p>
                   <p class="text-2xl font-bold text-purple-700">${appState.plantings.filter(p=>p.status==='completed').length}</p>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-4 text-center">
+                  <p class="text-xs text-gray-600 mb-1">失敗記録</p>
+                  <p class="text-2xl font-bold text-gray-500">${appState.plantings.filter(p=>p.status==='failed').length}</p>
                 </div>
                 <div class="bg-red-50 rounded-lg p-4 text-center">
                   <p class="text-xs text-gray-600 mb-1">連作警告</p>
