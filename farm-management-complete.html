@@ -188,25 +188,6 @@
     function calculateWarnings() {
       const warnings = [];
       const currentYear = new Date().getFullYear();
-      const todayStr = new Date().toISOString().split('T')[0];
-
-      // 収穫予定日超過チェック
-      appState.plantings.filter(p => p.status === 'active' && p.harvestDate && p.harvestDate < todayStr).forEach(p => {
-        const ridge = RIDGES.find(r => r.id === p.ridgeId);
-        const field = FIELDS.find(f => f.id === ridge.field);
-        const daysOver = Math.floor((new Date(todayStr) - new Date(p.harvestDate)) / 86400000);
-        warnings.push({
-          id: 'overdue-' + p.id,
-          ridgeId: p.ridgeId,
-          cropName: p.cropName,
-          cropFamily: p.cropFamily,
-          severity: daysOver > 14 ? 'critical' : 'warning',
-          type: 'overdue',
-          fieldName: field.name,
-          ridgeNo: ridge.no,
-          message: `${field.name} 畝${ridge.no}: ${p.cropName} の収穫予定日（${p.harvestDate}）から${daysOver}日が経過しています。状態を「収穫済」に更新してください。`
-        });
-      });
 
       const activePlantings = appState.plantings.filter(p => p.status === 'active' || p.status === 'planned');
 
