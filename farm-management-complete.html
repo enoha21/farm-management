@@ -891,8 +891,8 @@
                 });
               }
 
-              // 作物名ラベル（バー下）
-              const cropLabels = crops.map(p => {
+              // 作物名ラベル（バー下）北→南順にソート
+              const cropLabels = [...crops].sort((a,b) => a.from - b.from).map(p => {
                 const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
                 return `<span style="display:inline-flex;align-items:center;gap:4px;background:#f3f4f6;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:bold">
                   <span style="width:8px;height:8px;background:${col};border-radius:2px;display:inline-block;flex-shrink:0"></span>
