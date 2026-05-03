@@ -852,39 +852,82 @@
           ${emptyRidges.length === 0 ? '<div class="text-sm text-green-700 font-bold">✅ 全畝利用中</div>' : ''}
         </div>
         `;
-        FIELDS.forEach(field => {
-          const fieldRidges = RIDGES.filter(r => r.field === field.id);
-          html += `
-          <div class="bg-white rounded-xl shadow p-6 mb-8">
-            <h2 class="font-bold text-lg mb-4">${field.name}（${field.loc}）</h2>
-            <div class="flex mb-2"><div style="width:60px"></div><div class="flex-1 ${field.id===1?'bg-gray-500':'bg-blue-300'} text-center text-xs font-bold ${field.id===1?'text-white':'text-blue-900'} py-1 rounded">${field.id===1?'🛣️ 北側道路':'圃場1に繋がっている'}</div><div style="width:60px"></div></div>
-            <div class="flex gap-2">
-              <div style="width:60px" class="flex items-center justify-center bg-green-200 rounded text-xs font-bold text-green-800 text-center leading-snug py-2">西<br/>隣接<br/>農地</div>
-              <div class="flex-1 flex gap-4">
-          `;
+        const isMobile = window.innerWidth < 640;
 
-          fieldRidges.forEach(ridge => {
-            const crops = appState.plantings.filter(p => p.ridgeId === ridge.id && p.status === 'active');
-            const hasWarn = activeRidges.has(ridge.id);
-            html += `<div class="flex-1 rounded overflow-hidden border-2 ${hasWarn?'border-red-500':'border-gray-300'}" style="min-width:0;display:flex;flex-direction:column">
-              <div class="text-center text-sm font-bold py-2 ${hasWarn?'bg-red-100 text-red-700':'bg-amber-50 text-gray-700'}">
-                畝${ridge.no}${hasWarn?'<div class="text-red-500 text-lg">⚠</div>':''}
-              </div>
-              <div style="flex:1;background:#fef3c7;position:relative;min-height:700px">
-                ${crops.length === 0 ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px">空き</div>' : ''}
-                ${renderCropSegments(crops)}
-              </div>
-              <button onclick="appState.tab='input';appState.showForm=true;appState.form.ridgeId='${ridge.id}';render()" class="w-full bg-green-50 hover:bg-green-100 text-green-700 text-xs py-1 font-bold">＋ 作付け追加</button>
-            </div>`;
+        if (isMobile) {
+          // ===== スマホ用：縦リスト表示 =====
+          FIELDS.forEach(field => {
+            const fieldRidges = RIDGES.filter(r => r.field === field.id);
+            html += `<div class="bg-white rounded-xl shadow mb-4 overflow-hidden">
+              <div class="bg-green-800 text-white px-4 py-2 font-bold text-sm">🌾 ${field.name}（${field.loc}）</div>`;
+            fieldRidges.forEach(ridge => {
+              const crops = appState.plantings.filter(p => p.ridgeId === ridge.id && p.status === 'active');
+              const hasWarn = activeRidges.has(ridge.id);
+              html += `<div style="border-bottom:1px solid #f1f5f9;${hasWarn?'background:#fff5f5':''}">
+                <div style="display:flex;align-items:stretch;min-height:64px">
+                  <!-- 畝番号 -->
+                  <div style="width:56px;background:${hasWarn?'#fee2e2':'#fef3c7'};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border-right:2px solid ${hasWarn?'#fca5a5':'#fde68a'}">
+                    <span style="font-weight:bold;font-size:13px;color:${hasWarn?'#dc2626':'#92400e'}">畝${ridge.no}</span>
+                    ${hasWarn ? '<span style="font-size:16px">⚠️</span>' : ''}
+                  </div>
+                  <!-- 作物リスト -->
+                  <div style="flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:4px;justify-content:center">
+                    ${crops.length === 0
+                      ? '<span style="color:#ccc;font-size:13px">空き</span>'
+                      : crops.map(p => {
+                          const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
+                          return `<div style="display:flex;align-items:center;gap:8px">
+                            <div style="width:10px;height:10px;background:${col};border-radius:50%;flex-shrink:0"></div>
+                            <span style="font-weight:bold;font-size:14px">${p.cropName}</span>
+                            <span style="font-size:11px;color:#888">${p.cropFamily}</span>
+                            ${p.variety ? `<span style="font-size:11px;color:#aaa">${p.variety}</span>` : ''}
+                          </div>`;
+                        }).join('')
+                    }
+                  </div>
+                  <!-- 追加ボタン -->
+                  <button onclick="appState.tab='input';appState.showForm=true;appState.form.ridgeId='${ridge.id}';render()" style="width:44px;background:#f0fdf4;color:#16a34a;border:none;border-left:1px solid #dcfce7;font-size:20px;cursor:pointer;flex-shrink:0">＋</button>
+                </div>
+              </div>`;
+            });
+            html += `</div>`;
           });
-          html += `
+
+        } else {
+          // ===== PC用：従来の縦型マップ表示 =====
+          FIELDS.forEach(field => {
+            const fieldRidges = RIDGES.filter(r => r.field === field.id);
+            html += `
+            <div class="bg-white rounded-xl shadow p-6 mb-8">
+              <h2 class="font-bold text-lg mb-4">${field.name}（${field.loc}）</h2>
+              <div class="flex mb-2"><div style="width:60px"></div><div class="flex-1 ${field.id===1?'bg-gray-500':'bg-blue-300'} text-center text-xs font-bold ${field.id===1?'text-white':'text-blue-900'} py-1 rounded">${field.id===1?'🛣️ 北側道路':'圃場1に繋がっている'}</div><div style="width:60px"></div></div>
+              <div class="flex gap-2">
+                <div style="width:60px" class="flex items-center justify-center bg-green-200 rounded text-xs font-bold text-green-800 text-center leading-snug py-2">西<br/>隣接<br/>農地</div>
+                <div class="flex-1 flex gap-4">
+            `;
+            fieldRidges.forEach(ridge => {
+              const crops = appState.plantings.filter(p => p.ridgeId === ridge.id && p.status === 'active');
+              const hasWarn = activeRidges.has(ridge.id);
+              html += `<div class="flex-1 rounded overflow-hidden border-2 ${hasWarn?'border-red-500':'border-gray-300'}" style="min-width:0;display:flex;flex-direction:column">
+                <div class="text-center text-sm font-bold py-2 ${hasWarn?'bg-red-100 text-red-700':'bg-amber-50 text-gray-700'}">
+                  畝${ridge.no}${hasWarn?'<div class="text-red-500 text-lg">⚠</div>':''}
+                </div>
+                <div style="flex:1;background:#fef3c7;position:relative;min-height:700px">
+                  ${crops.length === 0 ? '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#ccc;font-size:14px">空き</div>' : ''}
+                  ${renderCropSegments(crops)}
+                </div>
+                <button onclick="appState.tab='input';appState.showForm=true;appState.form.ridgeId='${ridge.id}';render()" class="w-full bg-green-50 hover:bg-green-100 text-green-700 text-xs py-1 font-bold">＋ 作付け追加</button>
+              </div>`;
+            });
+            html += `
+                </div>
+                <div style="width:60px" class="flex items-center justify-center bg-gray-400 rounded text-xs font-bold text-white text-center leading-snug py-2">東<br/>道路<br/>🛣️</div>
               </div>
-              <div style="width:60px" class="flex items-center justify-center bg-gray-400 rounded text-xs font-bold text-white text-center leading-snug py-2">東<br/>道路<br/>🛣️</div>
+              <div class="flex mt-2"><div style="width:60px"></div><div class="flex-1 ${field.id===1?'bg-blue-300':'bg-gray-500'} text-center text-xs font-bold ${field.id===1?'text-blue-900':'text-white'} py-1 rounded">${field.id===1?'圃場2に繋がっている':'🛣️ 南側道路'}</div><div style="width:60px"></div></div>
             </div>
-            <div class="flex mt-2"><div style="width:60px"></div><div class="flex-1 ${field.id===1?'bg-blue-300':'bg-gray-500'} text-center text-xs font-bold ${field.id===1?'text-blue-900':'text-white'} py-1 rounded">${field.id===1?'圃場2に繋がっている':'🛣️ 南側道路'}</div><div style="width:60px"></div></div>
-          </div>
-          `;
-        });
+            `;
+          });
+        }
         html += ``;
       }
 
