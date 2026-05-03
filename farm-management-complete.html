@@ -227,9 +227,58 @@
     }
 
     // ========== 配置提案機能 ==========
-    // 作物ごとの目安サイズ（畝の何%を占めるか）
-    const CROP_DEFAULTS = {
-      'トマト':{family:'ナス科',size:30},'ミニトマト':{family:'ナス科',size:25},
+    // 作物情報データベース（高さ・面積・消費量・収穫メモ）
+    // height: tall=高茎(>100cm) / medium=中茎(50-100cm) / short=低茎(<50cm)
+    // size: 畝全長(9.8m)に対する推奨占有率(%)
+    // shade: true=半日陰でも育つ
+    const CROP_INFO = {
+      'トマト':     {family:'ナス科',    height:'tall',   size:30, shade:false, harvest:'週2回・大量収穫。加工（ソース・冷凍）推奨', consumption:'高', storage:'加工で長期'},
+      'ミニトマト': {family:'ナス科',    height:'tall',   size:25, shade:false, harvest:'毎日収穫。2株で家族分', consumption:'高', storage:'1週間'},
+      'ナス':       {family:'ナス科',    height:'tall',   size:25, shade:false, harvest:'週2〜3回。漬物・焼きで大量消費可', consumption:'高', storage:'冷蔵1週間'},
+      'ピーマン':   {family:'ナス科',    height:'medium', size:20, shade:false, harvest:'週2回。冷凍保存◎', consumption:'中', storage:'冷凍で長期'},
+      'トウガラシ': {family:'ナス科',    height:'medium', size:15, shade:false, harvest:'乾燥保存で年中使える。2株で十分', consumption:'低', storage:'乾燥で長期'},
+      'ジャガイモ': {family:'ナス科',    height:'medium', size:35, shade:false, harvest:'一度に全収穫。涼しい場所で長期保存◎', consumption:'高', storage:'数ヶ月'},
+      'キュウリ':   {family:'ウリ科',    height:'tall',   size:25, shade:false, harvest:'毎日収穫必要。2〜3株で家族分', consumption:'高', storage:'3〜4日'},
+      'カボチャ':   {family:'ウリ科',    height:'tall',   size:40, shade:false, harvest:'1株2〜4個。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'ズッキーニ': {family:'ウリ科',    height:'medium', size:30, shade:false, harvest:'毎日収穫。大きくなりすぎ注意', consumption:'中', storage:'冷蔵1週間'},
+      'ゴーヤ':     {family:'ウリ科',    height:'tall',   size:30, shade:false, harvest:'棚が必要。好みが分かれる', consumption:'中', storage:'冷蔵1週間'},
+      'キャベツ':   {family:'アブラナ科',height:'medium', size:25, shade:false, harvest:'一度に収穫。冷蔵保存◎', consumption:'高', storage:'冷蔵2〜3週'},
+      'ブロッコリー':{family:'アブラナ科',height:'tall',  size:25, shade:false, harvest:'頂花蕾後も側花蕾が続く', consumption:'高', storage:'冷凍◎'},
+      'コマツナ':   {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'30〜40日で収穫。年中栽培可', consumption:'高', storage:'冷蔵3日'},
+      '水菜':       {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'サラダ・鍋に重宝。成長早い', consumption:'高', storage:'冷蔵3〜4日'},
+      '小カブ':     {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'45日で収穫。葉も食べられる', consumption:'中', storage:'冷蔵1週間'},
+      'ターサイ':   {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'冬に強い。炒め物・漬物向き', consumption:'中', storage:'冷蔵1週間'},
+      'ニンジン':   {family:'セリ科',    height:'short',  size:20, shade:false, harvest:'直播き。間引きしながら収穫。保存◎', consumption:'高', storage:'冷蔵1ヶ月'},
+      'パセリ':     {family:'セリ科',    height:'short',  size:10, shade:true,  harvest:'少量で十分。多年草', consumption:'低', storage:'冷凍◎'},
+      'エダマメ':   {family:'マメ科',    height:'medium', size:20, shade:false, harvest:'鮮度が命。2週間ごとにずらし蒔きがコツ', consumption:'高', storage:'冷凍◎'},
+      'インゲン':   {family:'マメ科',    height:'medium', size:20, shade:false, harvest:'夏〜秋。継続的に収穫', consumption:'中', storage:'冷凍◎'},
+      'ソラマメ':   {family:'マメ科',    height:'tall',   size:25, shade:false, harvest:'秋植え春収穫。保存きかないので一気に食べる', consumption:'高', storage:'冷凍◎'},
+      'アピオス':   {family:'マメ科',    height:'tall',   size:20, shade:true,  harvest:'つる性・棚必要。芋と花が食べられる', consumption:'中', storage:'数週間'},
+      'レタス':     {family:'キク科',    height:'short',  size:20, shade:true,  harvest:'春秋が適期。夏は溶けやすい', consumption:'高', storage:'冷蔵3〜4日'},
+      'シュンギク': {family:'キク科',    height:'short',  size:15, shade:true,  harvest:'鍋に必須。成長旺盛', consumption:'高', storage:'冷蔵3日'},
+      'ヤーコン':   {family:'キク科',    height:'tall',   size:30, shade:false, harvest:'1株で大収穫（3〜5kg）。保存◎', consumption:'中', storage:'冷暗所で数ヶ月'},
+      'ホウレンソウ':{family:'ヒユ科',  height:'short',  size:15, shade:true,  harvest:'春秋向き。冷凍保存◎', consumption:'高', storage:'冷凍◎'},
+      'ビーツ':     {family:'ヒユ科',   height:'short',  size:20, shade:true,  harvest:'5株で2〜3ヶ月分。葉も食べられる', consumption:'中', storage:'冷蔵数週間'},
+      'ネギ':       {family:'ヒガンバナ科',height:'medium',size:15,shade:false, harvest:'必要な分だけ切って使える', consumption:'高', storage:'畑で保存可'},
+      'ニラ':       {family:'ヒガンバナ科',height:'short',size:15, shade:true,  harvest:'切っても再生。手間いらず', consumption:'中', storage:'冷蔵3日'},
+      '青シソ':     {family:'シソ科',   height:'medium', size:10, shade:true,  harvest:'2〜3株で十分。こぼれ種で増える', consumption:'中', storage:'冷蔵3日'},
+      'ショウガ':   {family:'ショウガ科',height:'medium', size:25, shade:true,  harvest:'半日陰◎。高茎作物の北側がベスト。1kgで3〜4kg収穫', consumption:'高', storage:'常温で数ヶ月'},
+      '里芋':       {family:'サトイモ科',height:'medium', size:30, shade:true,  harvest:'水分を好む。1kgで4〜6kg収穫。保存◎', consumption:'高', storage:'土中で越冬可'},
+      'サトイモ':   {family:'サトイモ科',height:'medium', size:30, shade:true,  harvest:'水分を好む。保存◎', consumption:'高', storage:'土中で越冬可'},
+      'ツクネイモ': {family:'ヤマノイモ科',height:'tall', size:50, shade:false, harvest:'つる性・支柱必要。10個で畝の約半分。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'ナガイモ':   {family:'ヤマノイモ科',height:'tall', size:40, shade:false, harvest:'つる性・深根性。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'ヤマイモ':   {family:'ヤマノイモ科',height:'tall', size:40, shade:false, harvest:'つる性。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'トウモロコシ':{family:'イネ科',  height:'tall',   size:35, shade:false, harvest:'風媒花のため固めて植える。鮮度が命・収穫後即食べる', consumption:'高', storage:'冷凍◎'},
+      'オクラ':     {family:'アオイ科', height:'tall',   size:20, shade:false, harvest:'毎日収穫必要（大きくなりすぎ注意）。2〜3株', consumption:'中', storage:'冷蔵3日'},
+      'モロヘイヤ': {family:'アオイ科', height:'tall',   size:20, shade:false, harvest:'夏の栄養野菜。2〜3株で十分', consumption:'中', storage:'冷凍◎'},
+      'イチゴ':     {family:'バラ科',   height:'short',  size:25, shade:false, harvest:'ランナーで増える。春に集中収穫', consumption:'高', storage:'2〜3日'},
+      'アスパラガス':{family:'ユリ科',  height:'tall',   size:35, shade:false, harvest:'3年後から本収穫。永年作物・場所固定', consumption:'高', storage:'冷蔵3日'},
+      'キャッサバ': {family:'トウダイグサ科',height:'tall',size:40,shade:false, harvest:'熱帯作物。温暖地向き', consumption:'中', storage:'加工が必要'},
+    };
+    // 後方互換
+    const CROP_DEFAULTS = Object.fromEntries(Object.entries(CROP_INFO).map(([k,v])=>[k,{family:v.family,size:v.size}]));
+
+    // ここから旧CROP_DEFAULTSを削除（CROP_INFOに統合済み）
       'ナス':{family:'ナス科',size:25},'ピーマン':{family:'ナス科',size:20},
       'パプリカ':{family:'ナス科',size:20},'トウガラシ':{family:'ナス科',size:20},
       'ジャガイモ':{family:'ナス科',size:35},'キュウリ':{family:'ウリ科',size:30},
@@ -310,7 +359,7 @@
       return 'ok';
     }
 
-    // 配置提案を生成
+    // 配置提案を生成（日照・消費量・輪作を総合考慮）
     function generateSuggestions() {
       const crops = appState.suggestCrops.filter(c => c.cropName.trim() && c.sizePercent > 0);
       if (!crops.length) { alert('作物を1つ以上追加してください'); return; }
@@ -318,44 +367,87 @@
       const unplaced = [];
       const reservations = {};
 
-      // 輪作必要年数が多い→サイズが大きい順に処理
+      // 優先順位: 輪作年数多い → 高茎 → サイズ大きい順に処理
+      const heightOrder = {tall:3, medium:2, short:1};
       const sorted = [...crops].sort((a,b) => {
         const ya = (CROP_FAMILIES[a.cropFamily]||{minYears:1}).minYears;
         const yb = (CROP_FAMILIES[b.cropFamily]||{minYears:1}).minYears;
-        return yb !== ya ? yb - ya : b.sizePercent - a.sizePercent;
+        if (yb !== ya) return yb - ya;
+        const ha = heightOrder[a.height||'short'];
+        const hb = heightOrder[b.height||'short'];
+        if (hb !== ha) return hb - ha;
+        return b.sizePercent - a.sizePercent;
       });
 
       sorted.forEach(crop => {
         const candidates = [];
+        const height = crop.height || 'short';
+        const shadeOK = crop.shade || false;
+
         RIDGES.forEach(ridge => {
           const rot = getRotationStatus(ridge.id, crop.cropFamily);
           if (rot === 'ng') return;
           const spaces = findFreeSpaces(ridge.id, reservations);
+
           spaces.forEach(sp => {
-            if (sp.size >= crop.sizePercent) {
-              const field = FIELDS.find(f => f.id === ridge.field);
-              candidates.push({
-                ridgeId: ridge.id, fieldName: field.name, ridgeNo: ridge.no,
-                from: sp.from, to: sp.from + crop.sizePercent,
-                rotStatus: rot,
-                score: (rot === 'ok' ? 100 : 50) + sp.size // 余裕があるほど高スコア
-              });
+            if (sp.size < crop.sizePercent) return;
+            const field = FIELDS.find(f => f.id === ridge.field);
+            let score = (rot === 'ok' ? 100 : 50);
+
+            // ===== 日照スコア =====
+            // 高茎作物は北端（from小）に置くと南側の作物を日陰にしない
+            if (height === 'tall') {
+              score += Math.max(0, 40 - sp.from); // fromが小さいほど高スコア（北端優先）
+            } else if (height === 'short') {
+              score += sp.from * 0.3; // 短い作物は南寄り優先（日当たり確保）
             }
+            // 半日陰OK作物は高茎作物の「北側」に隣接した空きスペースを優先
+            if (shadeOK) {
+              const tallNearby = appState.plantings.filter(p =>
+                p.ridgeId === ridge.id && p.status === 'active' &&
+                (CROP_INFO[p.cropName]||{}).height === 'tall' &&
+                p.to <= sp.from && sp.from - p.to <= 10
+              );
+              const tallReserved = (reservations[ridge.id]||[]).filter(r => r.to <= sp.from && sp.from - r.to <= 10);
+              if (tallNearby.length || tallReserved.length) score += 30; // 高茎の日陰活用
+            }
+            // 高茎作物の北側隣接スペースには短い作物を避ける（影になるため）
+            if (height === 'short' && !shadeOK) {
+              const tallBefore = (reservations[ridge.id]||[]).filter(r => r.to === sp.from);
+              if (tallBefore.some(r => r.height === 'tall')) score -= 20;
+            }
+
+            score += sp.size * 0.2; // 余裕がある畝を優先
+            candidates.push({
+              ridgeId: ridge.id, fieldName: field.name, ridgeNo: ridge.no,
+              from: sp.from, to: sp.from + crop.sizePercent,
+              rotStatus: rot, score,
+              sunNote: height === 'tall' && sp.from < 30 ? '🌞 北端配置で南側を日陰にしません'
+                     : height === 'tall' ? '☀️ できれば北寄りが理想'
+                     : shadeOK && sp.from > 30 ? '🌿 高茎作物の影も活用できます'
+                     : '☀️ 日当たりの良い位置'
+            });
           });
         });
 
         if (!candidates.length) { unplaced.push(crop); return; }
         candidates.sort((a,b) => b.score - a.score);
         const best = candidates[0];
+        const info = CROP_INFO[crop.cropName] || {};
         suggestions.push({
           id: 'sg'+Date.now()+Math.random(),
           cropName: crop.cropName, cropFamily: crop.cropFamily,
-          sizePercent: crop.sizePercent,
+          sizePercent: crop.sizePercent, height: height, qty: crop.qty,
           ridgeId: best.ridgeId, fieldName: best.fieldName, ridgeNo: best.ridgeNo,
-          from: best.from, to: best.to, rotStatus: best.rotStatus, selected: true
+          from: best.from, to: best.to, rotStatus: best.rotStatus,
+          sunNote: best.sunNote,
+          harvestNote: info.harvest || '',
+          storageNote: info.storage || '',
+          consumptionNote: info.consumption || '',
+          selected: true
         });
         if (!reservations[best.ridgeId]) reservations[best.ridgeId] = [];
-        reservations[best.ridgeId].push({from: best.from, to: best.to});
+        reservations[best.ridgeId].push({from: best.from, to: best.to, height: height});
       });
 
       appState.suggestions = suggestions;
@@ -387,33 +479,53 @@
     // 配置提案タブの描画
     function renderSuggestTab() {
       var out = '';
+      var heightLabel = {tall:'🌿 高茎', medium:'🌱 中茎', short:'🌾 低茎'};
+
       if (appState.suggestTab === 'input') {
-        out += '<div style="max-width:680px">';
-        out += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#1e40af">';
-        out += '💡 植えたい作物を登録すると、作付け履歴・輪作ルール・現在の空きスペースを自動で読み取って最適な配置を提案します。';
+        out += '<div style="max-width:720px">';
+        out += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#1e40af;line-height:1.7">';
+        out += '💡 <strong>作物名だけ入力すれば</strong>、作付け履歴・輪作ルール・日照・消費量を自動で考慮して最適な畝・区間・株数を提案します。';
         out += '</div>';
 
         // 作物追加フォーム
         out += '<div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);padding:16px;margin-bottom:16px">';
         out += '<h3 style="font-weight:bold;font-size:15px;margin-bottom:12px;color:#1f2937">＋ 植えたい作物を追加</h3>';
         out += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">';
-        out += '<div style="flex:1;min-width:140px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">作物名</label>';
-        out += '<input id="sgCropName" list="sgCropList" class="input" placeholder="例：ショウガ" style="font-size:14px" onchange="(function(){var n=document.getElementById(\'sgCropName\').value;var d=CROP_DEFAULTS[n];if(d){document.getElementById(\'sgCropFamily\').value=d.family;document.getElementById(\'sgCropSize\').value=d.size;document.getElementById(\'sgSizeLabel\').textContent=d.size+\'%\';}})()"/>';
-        out += '<datalist id="sgCropList">' + Object.keys(CROP_DEFAULTS).map(function(k){return '<option value="'+k+'">';}).join('') + '</datalist></div>';
-        out += '<div style="width:130px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">科目</label>';
-        out += '<select id="sgCropFamily" class="input" style="font-size:13px">' + Object.keys(CROP_FAMILIES).map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('') + '</select></div>';
-        out += '<div style="width:120px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">使用面積 <span id="sgSizeLabel" style="color:#16a34a;font-weight:bold">20%</span></label>';
-        out += '<input id="sgCropSize" type="range" min="5" max="100" step="5" value="20" style="width:100%" oninput="document.getElementById(\'sgSizeLabel\').textContent=this.value+\'%\'"/></div>';
+        // 作物名入力
+        out += '<div style="flex:1;min-width:150px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">作物名</label>';
+        out += '<input id="sgCropName" list="sgCropList" class="input" placeholder="例：ショウガ" style="font-size:14px"';
+        out += ' onchange="(function(){';
+        out += 'var n=document.getElementById(\'sgCropName\').value;';
+        out += 'var d=CROP_INFO[n];';
+        out += 'if(d){';
+        out += '  var el=document.getElementById(\'sgInfoBox\');';
+        out += '  if(el)el.innerHTML=\'<span style="font-size:11px;color:#374151">\'+';
+        out += '    \'<b>\'+({tall:\'🌿高茎\',medium:\'🌱中茎\',short:\'🌾低茎\'}[d.height]||\'\')+\'</b> ／ \'+';
+        out += '    \'推奨面積<b>\'+d.size+\'%</b> ／ \'+';
+        out += '    (d.shade?\'☁️半日陰OK ／ \':\'\')+';
+        out += '    \'消費量：\'+d.consumption+\' ／ \'+d.harvest+\'</span>\';';
+        out += '}';
+        out += '})()"/>';
+        out += '<datalist id="sgCropList">' + Object.keys(CROP_INFO).map(function(k){return '<option value="'+k+'">';}).join('') + '</datalist></div>';
+        // 数量（任意）
+        out += '<div style="width:100px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">数量（任意）</label>';
+        out += '<input id="sgQty" class="input" placeholder="例：1kg・3株" style="font-size:13px"/></div>';
+        // 追加ボタン
         out += '<button onclick="(function(){';
         out += 'var n=document.getElementById(\'sgCropName\').value.trim();';
         out += 'if(!n){alert(\'作物名を入力してください\');return;}';
-        out += 'var f=document.getElementById(\'sgCropFamily\').value;';
-        out += 'var s=parseInt(document.getElementById(\'sgCropSize\').value);';
-        out += 'appState.suggestCrops.push({id:\'sc\'+Date.now(),cropName:n,cropFamily:f,sizePercent:s});';
+        out += 'var d=CROP_INFO[n]||{family:\'その他\',size:20,height:\'short\',shade:false};';
+        out += 'var qty=document.getElementById(\'sgQty\').value.trim();';
+        out += 'appState.suggestCrops.push({id:\'sc\'+Date.now(),cropName:n,cropFamily:d.family,sizePercent:d.size,height:d.height,shade:d.shade,qty:qty});';
         out += 'document.getElementById(\'sgCropName\').value=\'\';';
+        out += 'document.getElementById(\'sgQty\').value=\'\';';
+        out += 'var el=document.getElementById(\'sgInfoBox\');if(el)el.innerHTML=\'\';';
         out += 'render();';
         out += '})()" style="background:#16a34a;color:white;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer;white-space:nowrap;align-self:flex-end">追加</button>';
-        out += '</div></div>';
+        out += '</div>';
+        // 作物情報プレビュー
+        out += '<div id="sgInfoBox" style="margin-top:8px;padding:6px 10px;background:#f9fafb;border-radius:6px;min-height:24px;font-size:12px;color:#6b7280"></div>';
+        out += '</div>';
 
         // 追加済み作物リスト
         if (appState.suggestCrops.length > 0) {
@@ -421,92 +533,112 @@
           out += '<h3 style="font-weight:bold;font-size:15px;margin-bottom:12px;color:#1f2937">植えたい作物リスト（' + appState.suggestCrops.length + '件）</h3>';
           appState.suggestCrops.forEach(function(c) {
             var col = (CROP_FAMILIES[c.cropFamily] && CROP_FAMILIES[c.cropFamily].color) || '#999';
-            out += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6">';
+            var hl = heightLabel[c.height] || '';
+            var info = CROP_INFO[c.cropName] || {};
+            out += '<div style="padding:10px 0;border-bottom:1px solid #f3f4f6">';
+            out += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
             out += '<div style="width:12px;height:12px;background:'+col+';border-radius:3px;flex-shrink:0"></div>';
-            out += '<span style="font-weight:bold;font-size:14px;flex:1">'+c.cropName+'</span>';
-            out += '<span style="font-size:12px;color:#9ca3af">'+c.cropFamily+'</span>';
-            out += '<span style="font-size:12px;background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:bold">畝の '+c.sizePercent+'%</span>';
-            out += '<button onclick="appState.suggestCrops=appState.suggestCrops.filter(function(x){return x.id!==\''+c.id+'\'});render()" style="background:#fee2e2;color:#dc2626;border:none;padding:3px 8px;border-radius:6px;font-size:12px;cursor:pointer">削除</button>';
+            out += '<span style="font-weight:bold;font-size:15px">'+c.cropName+'</span>';
+            if (c.qty) out += '<span style="font-size:12px;color:#6b7280;background:#f3f4f6;padding:1px 7px;border-radius:8px">'+c.qty+'</span>';
+            out += '<span style="font-size:11px;color:#9ca3af">'+c.cropFamily+'</span>';
+            out += '<span style="font-size:11px;color:#6b7280">'+hl+'</span>';
+            out += '<span style="font-size:11px;background:#f0fdf4;color:#16a34a;padding:1px 7px;border-radius:8px;font-weight:bold">畝の'+c.sizePercent+'%</span>';
+            if (info.shade) out += '<span style="font-size:11px;color:#9ca3af">☁️半日陰OK</span>';
+            out += '<button onclick="appState.suggestCrops=appState.suggestCrops.filter(function(x){return x.id!==\''+c.id+'\'});render()" style="background:#fee2e2;color:#dc2626;border:none;padding:2px 8px;border-radius:6px;font-size:12px;cursor:pointer;margin-left:auto">削除</button>';
+            out += '</div>';
+            if (info.harvest) out += '<div style="font-size:11px;color:#9ca3af;margin-top:3px;padding-left:20px">📋 '+info.harvest+'</div>';
             out += '</div>';
           });
           out += '</div>';
-          out += '<button onclick="generateSuggestions()" style="width:100%;background:#1d4ed8;color:white;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(29,78,216,0.3)">🤖 配置を提案する</button>';
+          out += '<button onclick="generateSuggestions()" style="width:100%;background:#ea580c;color:white;border:none;padding:16px;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(234,88,12,0.3)">🤖 日照・輪作・消費量を考慮して配置を提案する</button>';
         } else {
           out += '<div style="background:#f9fafb;border-radius:10px;padding:30px;text-align:center;color:#9ca3af;font-size:14px">↑ 植えたい作物を追加してください</div>';
         }
         out += '</div>';
 
       } else {
-        // 結果表示
+        // ===== 結果表示 =====
         var ok = appState.suggestions.filter(function(s){return s.rotStatus==='ok';}).length;
         var caut = appState.suggestions.filter(function(s){return s.rotStatus==='caution';}).length;
         out += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px;margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">';
         out += '<span style="font-size:15px;font-weight:bold;color:#15803d">✅ 配置提案が完成しました</span>';
-        out += '<span style="font-size:13px;color:#166534">適合：'+ok+'件</span>';
-        if (caut) out += '<span style="font-size:13px;color:#d97706">要注意：'+caut+'件</span>';
+        out += '<span style="font-size:13px;color:#166534">輪作適合：'+ok+'件</span>';
+        if (caut) out += '<span style="font-size:13px;color:#d97706">要確認：'+caut+'件</span>';
         if (appState.suggestUnplaced.length) out += '<span style="font-size:13px;color:#dc2626">配置不可：'+appState.suggestUnplaced.length+'件</span>';
         out += '</div>';
 
-        // 圃場別に提案をグループ表示
+        // 圃場・畝別にグループ表示
         var byRidge = {};
+        var ridgeOrder = [];
         appState.suggestions.forEach(function(s) {
-          if (!byRidge[s.ridgeId]) byRidge[s.ridgeId] = {fieldName:s.fieldName, ridgeNo:s.ridgeNo, items:[]};
+          if (!byRidge[s.ridgeId]) { byRidge[s.ridgeId]={fieldName:s.fieldName,ridgeNo:s.ridgeNo,items:[]}; ridgeOrder.push(s.ridgeId); }
           byRidge[s.ridgeId].items.push(s);
         });
 
-        Object.keys(byRidge).forEach(function(ridgeId) {
+        ridgeOrder.forEach(function(ridgeId) {
           var group = byRidge[ridgeId];
-          out += '<div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:12px;overflow:hidden">';
-          out += '<div style="background:#374151;color:white;padding:8px 14px;font-weight:bold;font-size:14px">📍 '+group.fieldName+' 畝'+group.ridgeNo+'</div>';
+          out += '<div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:16px;overflow:hidden">';
+          out += '<div style="background:#374151;color:white;padding:10px 14px;font-weight:bold;font-size:14px">📍 '+group.fieldName+' 畝'+group.ridgeNo+'</div>';
 
-          // 畝バー（既存+提案）
-          out += '<div style="padding:10px 14px 0">';
-          out += '<div style="font-size:10px;color:#9ca3af;display:flex;justify-content:space-between;margin-bottom:2px"><span>北</span><span>南</span></div>';
-          out += '<div style="position:relative;height:28px;background:#f1f5f9;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0">';
-          // 既存の作付け（薄く表示）
+          // 畝バー（既存＋提案）
+          out += '<div style="padding:12px 14px 8px">';
+          out += '<div style="font-size:10px;color:#9ca3af;display:flex;justify-content:space-between;margin-bottom:2px"><span>◀ 北</span><span>南 ▶</span></div>';
+          out += '<div style="position:relative;height:36px;background:#f1f5f9;border-radius:8px;overflow:hidden;border:1px solid #e2e8f0">';
           appState.plantings.filter(function(p){ return p.ridgeId===ridgeId && (p.status==='active'||p.status==='planned'); }).forEach(function(p) {
-            var col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
-            out += '<div title="'+p.cropName+'（既存）" style="position:absolute;left:'+p.from+'%;width:'+(p.to-p.from)+'%;height:100%;background:'+col+';opacity:0.3;border-right:1px solid rgba(255,255,255,0.5)"></div>';
+            var col = (CROP_FAMILIES[p.cropFamily]&&CROP_FAMILIES[p.cropFamily].color)||'#999';
+            out += '<div title="'+p.cropName+'（既存）" style="position:absolute;left:'+p.from+'%;width:'+(p.to-p.from)+'%;height:100%;background:'+col+';opacity:0.25"></div>';
           });
-          // 提案配置（はっきり表示）
           group.items.forEach(function(s) {
-            var col = (CROP_FAMILIES[s.cropFamily] && CROP_FAMILIES[s.cropFamily].color) || '#999';
-            var border = s.rotStatus === 'caution' ? '2px dashed #f59e0b' : '2px solid rgba(255,255,255,0.6)';
-            out += '<div title="'+s.cropName+'（提案）" style="position:absolute;left:'+s.from+'%;width:'+(s.to-s.from)+'%;height:100%;background:'+col+';border:'+border+';display:flex;align-items:center;justify-content:center;overflow:hidden">';
-            if (s.to - s.from >= 20) out += '<span style="font-size:10px;font-weight:bold;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.6)">'+s.cropName+'</span>';
+            var col = (CROP_FAMILIES[s.cropFamily]&&CROP_FAMILIES[s.cropFamily].color)||'#999';
+            var bd = s.rotStatus==='caution' ? '2px dashed #f59e0b' : '2px solid rgba(255,255,255,0.5)';
+            out += '<div title="'+s.cropName+'（提案）" style="position:absolute;left:'+s.from+'%;width:'+(s.to-s.from)+'%;height:100%;background:'+col+';border:'+bd+';display:flex;align-items:center;justify-content:center;overflow:hidden">';
+            if (s.to-s.from>=15) out += '<span style="font-size:10px;font-weight:bold;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.7);padding:0 2px">'+s.cropName+'</span>';
             out += '</div>';
           });
           out += '</div></div>';
 
+          // 各作物の詳細
           group.items.forEach(function(s) {
-            var col = (CROP_FAMILIES[s.cropFamily] && CROP_FAMILIES[s.cropFamily].color) || '#999';
-            var rotBadge = s.rotStatus === 'ok'
-              ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold">✅ 輪作OK</span>'
-              : '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold">⚠️ 要注意</span>';
-            out += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid #f3f4f6">';
-            out += '<input type="checkbox" '+(s.selected?'checked':'')+' onchange="(function(){var sg=appState.suggestions.find(function(x){return x.id===\''+s.id+'\'});if(sg)sg.selected=this.checked;})()" style="width:18px;height:18px;cursor:pointer">';
+            var col = (CROP_FAMILIES[s.cropFamily]&&CROP_FAMILIES[s.cropFamily].color)||'#999';
+            var rotBadge = s.rotStatus==='ok'
+              ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:bold">✅輪作OK</span>'
+              : '<span style="background:#fef3c7;color:#d97706;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:bold">⚠️要確認</span>';
+            var hLabel = heightLabel[s.height]||'';
+            out += '<div style="border-top:1px solid #f3f4f6;padding:10px 14px">';
+            out += '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px">';
+            out += '<input type="checkbox" '+(s.selected?'checked':'')+' onchange="(function(t){var sg=appState.suggestions.find(function(x){return x.id===\''+s.id+'\'});if(sg)sg.selected=t.checked;})(this)" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">';
             out += '<div style="width:12px;height:12px;background:'+col+';border-radius:3px;flex-shrink:0"></div>';
-            out += '<span style="font-weight:bold;font-size:14px;flex:1">'+s.cropName+'</span>';
-            out += '<span style="font-size:12px;color:#9ca3af">'+s.cropFamily+'</span>';
+            out += '<span style="font-weight:bold;font-size:15px">'+s.cropName+'</span>';
+            if (s.qty) out += '<span style="font-size:12px;color:#6b7280;background:#f3f4f6;padding:1px 7px;border-radius:8px">'+s.qty+'</span>';
+            out += '<span style="font-size:11px;color:#9ca3af">'+hLabel+'</span>';
             out += rotBadge;
-            out += '<span style="font-size:12px;color:#6b7280">'+s.from+'〜'+s.to+'%</span>';
+            out += '<span style="font-size:12px;color:#6b7280;margin-left:auto">北'+s.from+'%〜南'+s.to+'%</span>';
+            out += '</div>';
+            // 理由・メモ
+            out += '<div style="margin-left:26px;display:flex;flex-direction:column;gap:3px">';
+            out += '<div style="font-size:12px;color:#059669">'+s.sunNote+'</div>';
+            if (s.harvestNote) out += '<div style="font-size:12px;color:#6b7280">📋 収穫：'+s.harvestNote+'</div>';
+            if (s.storageNote) out += '<div style="font-size:12px;color:#6b7280">📦 保存：'+s.storageNote+'</div>';
+            out += '</div>';
             out += '</div>';
           });
           out += '</div>';
         });
 
-        // 配置不可リスト
+        // 配置不可
         if (appState.suggestUnplaced.length) {
           out += '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px;margin-bottom:16px">';
-          out += '<p style="font-weight:bold;color:#c2410c;margin-bottom:8px">⚠️ 空きスペース不足・輪作NGのため配置できなかった作物</p>';
+          out += '<p style="font-weight:bold;color:#c2410c;margin-bottom:8px">⚠️ 空きスペース不足または輪作NGのため配置できなかった作物</p>';
           appState.suggestUnplaced.forEach(function(c) {
+            var rot = getRotationStatus('F1R1', c.cropFamily); // サンプルチェック
             out += '<div style="font-size:13px;color:#9a3412;padding:4px 0">・'+c.cropName+'（'+c.cropFamily+'・畝の'+c.sizePercent+'%必要）</div>';
           });
+          out += '<p style="font-size:12px;color:#c2410c;margin-top:8px">→ 作付け履歴タブから収穫済みに更新すると空きスペースが増えます</p>';
           out += '</div>';
         }
 
         out += '<div style="display:flex;gap:10px;flex-wrap:wrap">';
-        out += '<button onclick="addSuggestionsToPlans()" style="flex:1;background:#16a34a;color:white;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;min-width:180px">📅 選択した提案を計画に追加</button>';
+        out += '<button onclick="addSuggestionsToPlans()" style="flex:1;background:#16a34a;color:white;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;min-width:200px">📅 選択した提案を作付け計画に追加</button>';
         out += '<button onclick="appState.suggestTab=\'input\';render()" style="background:#e5e7eb;color:#374151;border:none;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer">← やり直す</button>';
         out += '</div>';
       }
