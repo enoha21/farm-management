@@ -278,39 +278,6 @@
     // 後方互換
     const CROP_DEFAULTS = Object.fromEntries(Object.entries(CROP_INFO).map(([k,v])=>[k,{family:v.family,size:v.size}]));
 
-    // ここから旧CROP_DEFAULTSを削除（CROP_INFOに統合済み）
-      'ナス':{family:'ナス科',size:25},'ピーマン':{family:'ナス科',size:20},
-      'パプリカ':{family:'ナス科',size:20},'トウガラシ':{family:'ナス科',size:20},
-      'ジャガイモ':{family:'ナス科',size:35},'キュウリ':{family:'ウリ科',size:30},
-      'カボチャ':{family:'ウリ科',size:40},'スイカ':{family:'ウリ科',size:40},
-      'ズッキーニ':{family:'ウリ科',size:30},'ゴーヤ':{family:'ウリ科',size:30},
-      'キャベツ':{family:'アブラナ科',size:25},'ブロッコリー':{family:'アブラナ科',size:25},
-      'ダイコン':{family:'アブラナ科',size:20},'ハクサイ':{family:'アブラナ科',size:25},
-      'コマツナ':{family:'アブラナ科',size:15},'水菜':{family:'アブラナ科',size:15},
-      'カブ':{family:'アブラナ科',size:15},'小カブ':{family:'アブラナ科',size:15},
-      'ターサイ':{family:'アブラナ科',size:15},'ルッコラ':{family:'アブラナ科',size:15},
-      'ニンジン':{family:'セリ科',size:20},'人参':{family:'セリ科',size:20},
-      'パセリ':{family:'セリ科',size:15},'セロリ':{family:'セリ科',size:20},
-      'エダマメ':{family:'マメ科',size:20},'インゲン':{family:'マメ科',size:20},
-      'ソラマメ':{family:'マメ科',size:25},'エンドウ':{family:'マメ科',size:20},
-      'アピオス':{family:'マメ科',size:20},'落花生':{family:'マメ科',size:25},
-      'レタス':{family:'キク科',size:20},'サニーレタス':{family:'キク科',size:20},
-      'シュンギク':{family:'キク科',size:15},'ゴボウ':{family:'キク科',size:30},
-      'ヤーコン':{family:'キク科',size:30},'ホウレンソウ':{family:'ヒユ科',size:15},
-      'ビーツ':{family:'ヒユ科',size:20},'スイスチャード':{family:'ヒユ科',size:20},
-      'タマネギ':{family:'ヒガンバナ科',size:20},'ニンニク':{family:'ヒガンバナ科',size:15},
-      'ネギ':{family:'ヒガンバナ科',size:15},'ニラ':{family:'ヒガンバナ科',size:15},
-      'バジル':{family:'シソ科',size:15},'青シソ':{family:'シソ科',size:15},
-      'シソ':{family:'シソ科',size:15},'ミント':{family:'シソ科',size:15},
-      'ショウガ':{family:'ショウガ科',size:25},'ミョウガ':{family:'ショウガ科',size:20},
-      'サトイモ':{family:'サトイモ科',size:30},'里芋':{family:'サトイモ科',size:30},
-      'ツクネイモ':{family:'ヤマノイモ科',size:50},'ナガイモ':{family:'ヤマノイモ科',size:40},
-      'ヤマイモ':{family:'ヤマノイモ科',size:40},'トウモロコシ':{family:'イネ科',size:35},
-      'オクラ':{family:'アオイ科',size:20},'モロヘイヤ':{family:'アオイ科',size:20},
-      'イチゴ':{family:'バラ科',size:25},'アスパラガス':{family:'ユリ科',size:35},
-      'キャッサバ':{family:'トウダイグサ科',size:40},
-    };
-
     // 空きスペースを計算（予約済みスペースを考慮）
     function findFreeSpaces(ridgeId, reservations) {
       const occupied = [];
