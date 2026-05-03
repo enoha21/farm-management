@@ -877,11 +877,12 @@
               const isEmpty = crops.length === 0;
 
               // 畝バー内に作物ブロックを表示
+              const sortedCrops = [...crops].sort((a,b) => a.from - b.from);
               let barContent = '';
               if (isEmpty) {
                 barContent = '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:11px;color:#ccc;font-weight:bold">空き</div>';
               } else {
-                crops.forEach(p => {
+                sortedCrops.forEach(p => {
                   const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
                   const width = p.to - p.from;
                   const showLabel = width >= 25;
@@ -891,8 +892,8 @@
                 });
               }
 
-              // 作物名ラベル（バー下）北→南順にソート
-              const cropLabels = [...crops].sort((a,b) => a.from - b.from).map(p => {
+              // 作物名ラベル（バー下）北→南順（barと同じsortedCropsを使用）
+              const cropLabels = sortedCrops.map(p => {
                 const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
                 return `<span style="display:inline-flex;align-items:center;gap:4px;background:#f3f4f6;border-radius:10px;padding:2px 8px;font-size:12px;font-weight:bold">
                   <span style="width:8px;height:8px;background:${col};border-radius:2px;display:inline-block;flex-shrink:0"></span>
