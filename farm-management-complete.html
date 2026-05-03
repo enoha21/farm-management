@@ -855,42 +855,62 @@
         const isMobile = window.innerWidth < 640;
 
         if (isMobile) {
-          // ===== スマホ用：縦リスト表示 =====
+          // ===== スマホ用：縦カード表示 =====
           FIELDS.forEach(field => {
             const fieldRidges = RIDGES.filter(r => r.field === field.id);
-            html += `<div class="bg-white rounded-xl shadow mb-4 overflow-hidden">
-              <div class="bg-green-800 text-white px-4 py-2 font-bold text-sm">🌾 ${field.name}（${field.loc}）</div>`;
+            const fieldColor = field.id === 1 ? '#1d4ed8' : '#15803d';
+            html += `<div style="margin-bottom:20px">
+              <div style="background:${fieldColor};color:white;padding:8px 14px;border-radius:10px 10px 0 0;font-weight:bold;font-size:14px">🌾 ${field.name}（${field.loc}）</div>
+              <div style="display:flex;flex-direction:column;gap:8px;padding:10px;background:#f8fafc;border:2px solid ${fieldColor};border-top:none;border-radius:0 0 10px 10px">`;
+
             fieldRidges.forEach(ridge => {
               const crops = appState.plantings.filter(p => p.ridgeId === ridge.id && p.status === 'active');
               const hasWarn = activeRidges.has(ridge.id);
-              html += `<div style="border-bottom:1px solid #f1f5f9;${hasWarn?'background:#fff5f5':''}">
-                <div style="display:flex;align-items:stretch;min-height:64px">
-                  <!-- 畝番号 -->
-                  <div style="width:56px;background:${hasWarn?'#fee2e2':'#fef3c7'};display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0;border-right:2px solid ${hasWarn?'#fca5a5':'#fde68a'}">
-                    <span style="font-weight:bold;font-size:13px;color:${hasWarn?'#dc2626':'#92400e'}">畝${ridge.no}</span>
-                    ${hasWarn ? '<span style="font-size:16px">⚠️</span>' : ''}
+              const isEmpty = crops.length === 0;
+
+              // 北→南の区間バー
+              let barHtml = '<div style="position:relative;height:14px;background:#e5e7eb;border-radius:6px;overflow:hidden;margin-top:6px">';
+              if (isEmpty) {
+                barHtml += '<div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:#aaa">空き</div>';
+              } else {
+                crops.forEach(p => {
+                  const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
+                  barHtml += `<div title="${p.cropName}" style="position:absolute;left:${p.from}%;width:${p.to - p.from}%;height:100%;background:${col};opacity:0.85"></div>`;
+                });
+              }
+              barHtml += '</div><div style="display:flex;justify-content:space-between;font-size:9px;color:#aaa;margin-top:1px"><span>北</span><span>南</span></div>';
+
+              html += `<div style="background:white;border-radius:8px;border:2px solid ${hasWarn?'#fca5a5':'#e2e8f0'};overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06)">
+                <!-- 畝ヘッダー -->
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:${hasWarn?'#fee2e2':isEmpty?'#f9fafb':'#f0fdf4'};border-bottom:1px solid ${hasWarn?'#fca5a5':'#e2e8f0'}">
+                  <div style="display:flex;align-items:center;gap:6px">
+                    <span style="font-weight:bold;font-size:14px;color:${hasWarn?'#dc2626':'#374151'}">畝 ${ridge.no}</span>
+                    ${hasWarn ? '<span style="font-size:13px">⚠️ 連作注意</span>' : ''}
+                    ${isEmpty ? '<span style="font-size:12px;color:#9ca3af">空き</span>' : `<span style="font-size:12px;color:#16a34a;font-weight:bold">${crops.length}作物</span>`}
                   </div>
-                  <!-- 作物リスト -->
-                  <div style="flex:1;padding:8px 10px;display:flex;flex-direction:column;gap:4px;justify-content:center">
-                    ${crops.length === 0
-                      ? '<span style="color:#ccc;font-size:13px">空き</span>'
-                      : crops.map(p => {
-                          const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
-                          return `<div style="display:flex;align-items:center;gap:8px">
-                            <div style="width:10px;height:10px;background:${col};border-radius:50%;flex-shrink:0"></div>
-                            <span style="font-weight:bold;font-size:14px">${p.cropName}</span>
-                            <span style="font-size:11px;color:#888">${p.cropFamily}</span>
-                            ${p.variety ? `<span style="font-size:11px;color:#aaa">${p.variety}</span>` : ''}
-                          </div>`;
-                        }).join('')
-                    }
-                  </div>
-                  <!-- 追加ボタン -->
-                  <button onclick="appState.tab='input';appState.showForm=true;appState.form.ridgeId='${ridge.id}';render()" style="width:44px;background:#f0fdf4;color:#16a34a;border:none;border-left:1px solid #dcfce7;font-size:20px;cursor:pointer;flex-shrink:0">＋</button>
+                  <button onclick="appState.tab='input';appState.showForm=true;appState.form.ridgeId='${ridge.id}';render()" style="background:#16a34a;color:white;border:none;padding:3px 10px;border-radius:6px;font-size:13px;font-weight:bold;cursor:pointer">＋ 追加</button>
                 </div>
+                <!-- 区間バー -->
+                <div style="padding:6px 10px 4px">
+                  ${barHtml}
+                </div>
+                <!-- 作物リスト -->
+                ${crops.length > 0 ? `<div style="padding:4px 10px 8px;display:flex;flex-direction:column;gap:4px">
+                  ${crops.map(p => {
+                    const col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
+                    return `<div style="display:flex;align-items:center;gap:8px">
+                      <div style="width:12px;height:12px;background:${col};border-radius:3px;flex-shrink:0"></div>
+                      <span style="font-weight:bold;font-size:14px">${p.cropName}</span>
+                      <span style="font-size:11px;color:#9ca3af">${p.cropFamily}</span>
+                      ${p.variety ? `<span style="font-size:11px;color:#bbb">/ ${p.variety}</span>` : ''}
+                      <span style="font-size:10px;color:#ccc;margin-left:auto">${p.from}〜${p.to}%</span>
+                    </div>`;
+                  }).join('')}
+                </div>` : ''}
               </div>`;
             });
-            html += `</div>`;
+
+            html += `</div></div>`;
           });
 
         } else {
