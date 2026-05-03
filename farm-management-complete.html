@@ -423,6 +423,32 @@
       render();
     }
 
+    // 作物名入力時のプレビュー更新（onchange から呼ぶ）
+    function updateSuggestInfo(name) {
+      var el = document.getElementById('sgInfoBox');
+      if (!el) return;
+      var d = CROP_INFO[name];
+      if (!d) { el.innerHTML = ''; return; }
+      var hLabel = {tall:'🌿高茎', medium:'🌱中茎', short:'🌾低茎'}[d.height] || '';
+      el.innerHTML = '<span style="font-size:12px;color:#374151">'
+        + '<b>' + hLabel + '</b> ／ 推奨面積<b>' + d.size + '%</b> ／ '
+        + (d.shade ? '☁️半日陰OK ／ ' : '')
+        + '消費量：' + d.consumption + ' ／ ' + d.harvest
+        + '</span>';
+    }
+
+    // 作物追加（追加ボタンから呼ぶ）
+    function addSuggestCrop() {
+      var n = document.getElementById('sgCropName').value.trim();
+      if (!n) { alert('作物名を入力してください'); return; }
+      var d = CROP_INFO[n] || {family:'その他', size:20, height:'short', shade:false};
+      var qty = document.getElementById('sgQty').value.trim();
+      appState.suggestCrops.push({id:'sc'+Date.now(), cropName:n, cropFamily:d.family, sizePercent:d.size, height:d.height, shade:d.shade, qty:qty});
+      document.getElementById('sgCropName').value = '';
+      document.getElementById('sgQty').value = '';
+      render();
+    }
+
     // 提案を作付け計画に追加
     function addSuggestionsToPlans() {
       const toAdd = appState.suggestions.filter(s => s.selected);
@@ -460,35 +486,13 @@
         out += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">';
         // 作物名入力
         out += '<div style="flex:1;min-width:150px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">作物名</label>';
-        out += '<input id="sgCropName" list="sgCropList" class="input" placeholder="例：ショウガ" style="font-size:14px"';
-        out += ' onchange="(function(){';
-        out += 'var n=document.getElementById(\'sgCropName\').value;';
-        out += 'var d=CROP_INFO[n];';
-        out += 'if(d){';
-        out += '  var el=document.getElementById(\'sgInfoBox\');';
-        out += '  if(el)el.innerHTML=\'<span style="font-size:11px;color:#374151">\'+';
-        out += '    \'<b>\'+({tall:\'🌿高茎\',medium:\'🌱中茎\',short:\'🌾低茎\'}[d.height]||\'\')+\'</b> ／ \'+';
-        out += '    \'推奨面積<b>\'+d.size+\'%</b> ／ \'+';
-        out += '    (d.shade?\'☁️半日陰OK ／ \':\'\')+';
-        out += '    \'消費量：\'+d.consumption+\' ／ \'+d.harvest+\'</span>\';';
-        out += '}';
-        out += '})()"/>';
+        out += '<input id="sgCropName" list="sgCropList" class="input" placeholder="例：ショウガ" style="font-size:14px" onchange="updateSuggestInfo(this.value)"/>';
         out += '<datalist id="sgCropList">' + Object.keys(CROP_INFO).map(function(k){return '<option value="'+k+'">';}).join('') + '</datalist></div>';
         // 数量（任意）
         out += '<div style="width:100px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">数量（任意）</label>';
         out += '<input id="sgQty" class="input" placeholder="例：1kg・3株" style="font-size:13px"/></div>';
         // 追加ボタン
-        out += '<button onclick="(function(){';
-        out += 'var n=document.getElementById(\'sgCropName\').value.trim();';
-        out += 'if(!n){alert(\'作物名を入力してください\');return;}';
-        out += 'var d=CROP_INFO[n]||{family:\'その他\',size:20,height:\'short\',shade:false};';
-        out += 'var qty=document.getElementById(\'sgQty\').value.trim();';
-        out += 'appState.suggestCrops.push({id:\'sc\'+Date.now(),cropName:n,cropFamily:d.family,sizePercent:d.size,height:d.height,shade:d.shade,qty:qty});';
-        out += 'document.getElementById(\'sgCropName\').value=\'\';';
-        out += 'document.getElementById(\'sgQty\').value=\'\';';
-        out += 'var el=document.getElementById(\'sgInfoBox\');if(el)el.innerHTML=\'\';';
-        out += 'render();';
-        out += '})()" style="background:#16a34a;color:white;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer;white-space:nowrap;align-self:flex-end">追加</button>';
+        out += '<button onclick="addSuggestCrop()" style="background:#16a34a;color:white;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer;white-space:nowrap;align-self:flex-end">追加</button>';
         out += '</div>';
         // 作物情報プレビュー
         out += '<div id="sgInfoBox" style="margin-top:8px;padding:6px 10px;background:#f9fafb;border-radius:6px;min-height:24px;font-size:12px;color:#6b7280"></div>';
