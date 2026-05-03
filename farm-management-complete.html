@@ -7,6 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
     .label { display:block; font-size:0.8rem; font-weight:700; margin-bottom:4px; color:#374151; }
@@ -49,11 +50,15 @@
     };
 
     let firebaseDb = null;
+    let firebaseAuth = null;
+    let currentUser = null;
+    let authLoading = true;
     let syncStatus = 'loading';
 
     try {
       firebase.initializeApp(firebaseConfig);
       firebaseDb = firebase.database();
+      firebaseAuth = firebase.auth();
     } catch(e) {
       console.error('Firebase初期化失敗:', e);
       syncStatus = 'offline';
@@ -130,16 +135,53 @@
       historyYear: 0   // 0=全年表示
     };
 
+    // ======================================
+    // Firebase 認証
+    // ======================================
+    function signInWithGoogle() {
+      if (!firebaseAuth) { alert('認証サービスが利用できません'); return; }
+      const provider = new firebase.auth.GoogleAuthProvider();
+      firebaseAuth.signInWithPopup(provider).catch(function(e) {
+        alert('ログインに失敗しました: ' + e.message);
+      });
+    }
+
+    function signOutUser() {
+      if (!confirm('ログアウトしますか？')) return;
+      if (firebaseAuth) firebaseAuth.signOut();
+    }
+
+    // 認証状態の監視
+    if (firebaseAuth) {
+      firebaseAuth.onAuthStateChanged(function(user) {
+        currentUser = user;
+        authLoading = false;
+        if (user) {
+          loadDataFromFirebase();
+        } else {
+          render();
+        }
+      });
+    } else {
+      authLoading = false;
+    }
+
+    // 初期表示（認証確認中スクリーンを即表示）
+    window.addEventListener('DOMContentLoaded', function() {
+      render();
+    });
+
     // ========== 保存・読み込み（Firebase + localStorage） ==========
     function autoSave() {
       const data = { plantings: appState.plantings, plans: appState.plans };
       // ローカルバックアップ
       try { localStorage.setItem('farmAppData', JSON.stringify(data)); } catch(e) {}
-      // クラウド保存
-      if (!firebaseDb) { syncStatus = 'offline'; updateSyncIndicator(); return; }
+      // クラウド保存（ログイン時のみ）
+      if (!firebaseDb || !currentUser) { syncStatus = 'offline'; updateSyncIndicator(); return; }
       syncStatus = 'saving';
       updateSyncIndicator();
-      firebaseDb.ref('farmData').set({ ...data, lastUpdated: new Date().toISOString() })
+      const uid = currentUser.uid;
+      firebaseDb.ref('users/' + uid + '/farmData').set({ ...data, lastUpdated: new Date().toISOString() })
         .then(() => { syncStatus = 'synced'; updateSyncIndicator(); })
         .catch(() => { syncStatus = 'offline'; updateSyncIndicator(); });
     }
@@ -155,15 +197,16 @@
       } catch(e) {}
     }
 
-    // ページロード時：localStorage即時表示→Firebase最新データで上書き
-    window.addEventListener('load', async () => {
+    async function loadDataFromFirebase() {
+      // まずローカルを即時表示
       loadFromLocal();
       render();
 
-      if (!firebaseDb) { syncStatus = 'offline'; updateSyncIndicator(); return; }
+      if (!firebaseDb || !currentUser) { syncStatus = 'offline'; updateSyncIndicator(); return; }
 
       try {
-        const snapshot = await firebaseDb.ref('farmData').once('value');
+        const uid = currentUser.uid;
+        const snapshot = await firebaseDb.ref('users/' + uid + '/farmData').once('value');
         const data = snapshot.val();
         if (data) {
           appState.plantings = data.plantings || [];
@@ -176,7 +219,7 @@
       }
       render();
       updateSyncIndicator();
-    });
+    }
 
     function findFamily(name) {
       for (const [fam, data] of Object.entries(CROP_FAMILIES)) {
@@ -718,6 +761,31 @@
 
     function render() {
       const app = document.getElementById('app');
+
+      // 認証ローディング中
+      if (authLoading) {
+        app.innerHTML = '<div class="min-h-screen bg-gray-100 flex items-center justify-center"><div class="text-gray-500 text-lg">⏳ 認証確認中...</div></div>';
+        return;
+      }
+
+      // 未ログイン時はログイン画面
+      if (!currentUser) {
+        app.innerHTML = `
+          <div class="min-h-screen bg-gray-100 flex items-center justify-center">
+            <div class="bg-white rounded-2xl shadow-xl p-10 max-w-sm w-full text-center">
+              <div class="text-5xl mb-4">🌾</div>
+              <h1 class="text-2xl font-bold text-green-800 mb-2">農園作付け管理システム</h1>
+              <p class="text-gray-500 text-sm mb-8">クラウド同期でどのデバイスからでもアクセスできます</p>
+              <button onclick="signInWithGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-gray-300 hover:border-gray-400 rounded-xl px-6 py-3 font-bold text-gray-700 shadow-sm hover:shadow transition-all">
+                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.08 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.31-8.16 2.31-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/><path fill="none" d="M0 0h48v48H0z"/></svg>
+                Googleでログイン
+              </button>
+              <p class="text-xs text-gray-400 mt-6">ログインするとデータがクラウドに安全に保存されます</p>
+            </div>
+          </div>`;
+        return;
+      }
+
       const warnings = calculateWarnings();
       const activeRidges = new Set(warnings.map(w => w.ridgeId));
       const warnCount = warnings.length;
@@ -738,6 +806,11 @@
                   ⚠️ 連作警告 ${warnCount}件
                 </button>
                 ` : ''}
+                <div class="flex items-center gap-2">
+                  ${currentUser.photoURL ? `<img src="${currentUser.photoURL}" class="w-8 h-8 rounded-full border-2 border-green-400" alt="ユーザー">` : '<div class="w-8 h-8 rounded-full bg-green-600 flex items-center justify-center text-sm font-bold">👤</div>'}
+                  <span class="text-green-200 text-xs hidden sm:inline">${currentUser.displayName || currentUser.email || 'ユーザー'}</span>
+                  <button onclick="signOutUser()" class="text-xs bg-green-700 hover:bg-green-600 text-green-200 px-2 py-1 rounded">ログアウト</button>
+                </div>
               </div>
             </div>
           </div>
