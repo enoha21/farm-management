@@ -132,7 +132,12 @@
       planView: 'gantt',
       planMapMonth: new Date().getMonth() + 1,
       planListSort: 'ridge',
-      historyYear: 0   // 0=全年表示
+      historyYear: 0,   // 0=全年表示
+      // 配置提案
+      suggestTab: 'input',
+      suggestCrops: [],
+      suggestions: [],
+      suggestUnplaced: []
     };
 
     // ======================================
@@ -219,6 +224,293 @@
       }
       render();
       updateSyncIndicator();
+    }
+
+    // ========== 配置提案機能 ==========
+    // 作物ごとの目安サイズ（畝の何%を占めるか）
+    const CROP_DEFAULTS = {
+      'トマト':{family:'ナス科',size:30},'ミニトマト':{family:'ナス科',size:25},
+      'ナス':{family:'ナス科',size:25},'ピーマン':{family:'ナス科',size:20},
+      'パプリカ':{family:'ナス科',size:20},'トウガラシ':{family:'ナス科',size:20},
+      'ジャガイモ':{family:'ナス科',size:35},'キュウリ':{family:'ウリ科',size:30},
+      'カボチャ':{family:'ウリ科',size:40},'スイカ':{family:'ウリ科',size:40},
+      'ズッキーニ':{family:'ウリ科',size:30},'ゴーヤ':{family:'ウリ科',size:30},
+      'キャベツ':{family:'アブラナ科',size:25},'ブロッコリー':{family:'アブラナ科',size:25},
+      'ダイコン':{family:'アブラナ科',size:20},'ハクサイ':{family:'アブラナ科',size:25},
+      'コマツナ':{family:'アブラナ科',size:15},'水菜':{family:'アブラナ科',size:15},
+      'カブ':{family:'アブラナ科',size:15},'小カブ':{family:'アブラナ科',size:15},
+      'ターサイ':{family:'アブラナ科',size:15},'ルッコラ':{family:'アブラナ科',size:15},
+      'ニンジン':{family:'セリ科',size:20},'人参':{family:'セリ科',size:20},
+      'パセリ':{family:'セリ科',size:15},'セロリ':{family:'セリ科',size:20},
+      'エダマメ':{family:'マメ科',size:20},'インゲン':{family:'マメ科',size:20},
+      'ソラマメ':{family:'マメ科',size:25},'エンドウ':{family:'マメ科',size:20},
+      'アピオス':{family:'マメ科',size:20},'落花生':{family:'マメ科',size:25},
+      'レタス':{family:'キク科',size:20},'サニーレタス':{family:'キク科',size:20},
+      'シュンギク':{family:'キク科',size:15},'ゴボウ':{family:'キク科',size:30},
+      'ヤーコン':{family:'キク科',size:30},'ホウレンソウ':{family:'ヒユ科',size:15},
+      'ビーツ':{family:'ヒユ科',size:20},'スイスチャード':{family:'ヒユ科',size:20},
+      'タマネギ':{family:'ヒガンバナ科',size:20},'ニンニク':{family:'ヒガンバナ科',size:15},
+      'ネギ':{family:'ヒガンバナ科',size:15},'ニラ':{family:'ヒガンバナ科',size:15},
+      'バジル':{family:'シソ科',size:15},'青シソ':{family:'シソ科',size:15},
+      'シソ':{family:'シソ科',size:15},'ミント':{family:'シソ科',size:15},
+      'ショウガ':{family:'ショウガ科',size:25},'ミョウガ':{family:'ショウガ科',size:20},
+      'サトイモ':{family:'サトイモ科',size:30},'里芋':{family:'サトイモ科',size:30},
+      'ツクネイモ':{family:'ヤマノイモ科',size:50},'ナガイモ':{family:'ヤマノイモ科',size:40},
+      'ヤマイモ':{family:'ヤマノイモ科',size:40},'トウモロコシ':{family:'イネ科',size:35},
+      'オクラ':{family:'アオイ科',size:20},'モロヘイヤ':{family:'アオイ科',size:20},
+      'イチゴ':{family:'バラ科',size:25},'アスパラガス':{family:'ユリ科',size:35},
+      'キャッサバ':{family:'トウダイグサ科',size:40},
+    };
+
+    // 空きスペースを計算（予約済みスペースを考慮）
+    function findFreeSpaces(ridgeId, reservations) {
+      const occupied = [];
+      appState.plantings
+        .filter(p => p.ridgeId === ridgeId && (p.status === 'active' || p.status === 'planned'))
+        .forEach(p => occupied.push({from: p.from, to: p.to}));
+      appState.plans
+        .filter(p => p.ridgeId === ridgeId)
+        .forEach(p => occupied.push({from: p.from, to: p.to}));
+      (reservations[ridgeId] || []).forEach(r => occupied.push(r));
+
+      occupied.sort((a,b) => a.from - b.from);
+      // 重複マージ
+      const merged = [];
+      occupied.forEach(o => {
+        if (!merged.length || o.from >= merged[merged.length-1].to) {
+          merged.push({from:o.from, to:o.to});
+        } else {
+          merged[merged.length-1].to = Math.max(merged[merged.length-1].to, o.to);
+        }
+      });
+      // 隙間を返す
+      const free = [];
+      let pos = 0;
+      merged.forEach(o => {
+        if (o.from > pos) free.push({from:pos, to:o.from, size:o.from-pos});
+        pos = Math.max(pos, o.to);
+      });
+      if (pos < 100) free.push({from:pos, to:100, size:100-pos});
+      return free;
+    }
+
+    // 輪作状況チェック: 'ok' | 'caution' | 'ng'
+    function getRotationStatus(ridgeId, cropFamily) {
+      if (!cropFamily || cropFamily === 'その他' || !CROP_FAMILIES[cropFamily]) return 'ok';
+      const minYears = CROP_FAMILIES[cropFamily].minYears;
+      const currentYear = new Date().getFullYear();
+      const relevant = appState.plantings.filter(p =>
+        p.ridgeId === ridgeId && p.cropFamily === cropFamily
+      );
+      if (!relevant.length) return 'ok';
+      const lastYear = Math.max(...relevant.map(p => p.year));
+      const gap = currentYear - lastYear;
+      if (gap === 0) return 'ng';
+      if (gap < minYears) return gap <= 1 ? 'ng' : 'caution';
+      return 'ok';
+    }
+
+    // 配置提案を生成
+    function generateSuggestions() {
+      const crops = appState.suggestCrops.filter(c => c.cropName.trim() && c.sizePercent > 0);
+      if (!crops.length) { alert('作物を1つ以上追加してください'); return; }
+      const suggestions = [];
+      const unplaced = [];
+      const reservations = {};
+
+      // 輪作必要年数が多い→サイズが大きい順に処理
+      const sorted = [...crops].sort((a,b) => {
+        const ya = (CROP_FAMILIES[a.cropFamily]||{minYears:1}).minYears;
+        const yb = (CROP_FAMILIES[b.cropFamily]||{minYears:1}).minYears;
+        return yb !== ya ? yb - ya : b.sizePercent - a.sizePercent;
+      });
+
+      sorted.forEach(crop => {
+        const candidates = [];
+        RIDGES.forEach(ridge => {
+          const rot = getRotationStatus(ridge.id, crop.cropFamily);
+          if (rot === 'ng') return;
+          const spaces = findFreeSpaces(ridge.id, reservations);
+          spaces.forEach(sp => {
+            if (sp.size >= crop.sizePercent) {
+              const field = FIELDS.find(f => f.id === ridge.field);
+              candidates.push({
+                ridgeId: ridge.id, fieldName: field.name, ridgeNo: ridge.no,
+                from: sp.from, to: sp.from + crop.sizePercent,
+                rotStatus: rot,
+                score: (rot === 'ok' ? 100 : 50) + sp.size // 余裕があるほど高スコア
+              });
+            }
+          });
+        });
+
+        if (!candidates.length) { unplaced.push(crop); return; }
+        candidates.sort((a,b) => b.score - a.score);
+        const best = candidates[0];
+        suggestions.push({
+          id: 'sg'+Date.now()+Math.random(),
+          cropName: crop.cropName, cropFamily: crop.cropFamily,
+          sizePercent: crop.sizePercent,
+          ridgeId: best.ridgeId, fieldName: best.fieldName, ridgeNo: best.ridgeNo,
+          from: best.from, to: best.to, rotStatus: best.rotStatus, selected: true
+        });
+        if (!reservations[best.ridgeId]) reservations[best.ridgeId] = [];
+        reservations[best.ridgeId].push({from: best.from, to: best.to});
+      });
+
+      appState.suggestions = suggestions;
+      appState.suggestUnplaced = unplaced;
+      appState.suggestTab = 'result';
+      render();
+    }
+
+    // 提案を作付け計画に追加
+    function addSuggestionsToPlans() {
+      const toAdd = appState.suggestions.filter(s => s.selected);
+      if (!toAdd.length) { alert('追加する提案を選択してください'); return; }
+      const today = new Date();
+      const ym = today.getFullYear() + '-' + String(today.getMonth()+1).padStart(2,'0');
+      toAdd.forEach(s => {
+        appState.plans.push({
+          id: 'pl'+Date.now()+Math.random(),
+          ridgeId: s.ridgeId, cropName: s.cropName, cropFamily: s.cropFamily,
+          from: s.from, to: s.to, startMonth: ym, endMonth: '', notes: '配置提案より自動登録'
+        });
+      });
+      autoSave();
+      appState.suggestTab = 'input';
+      appState.tab = 'plan';
+      alert(toAdd.length + '件を作付け計画に追加しました');
+      render();
+    }
+
+    // 配置提案タブの描画
+    function renderSuggestTab() {
+      var out = '';
+      if (appState.suggestTab === 'input') {
+        out += '<div style="max-width:680px">';
+        out += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#1e40af">';
+        out += '💡 植えたい作物を登録すると、作付け履歴・輪作ルール・現在の空きスペースを自動で読み取って最適な配置を提案します。';
+        out += '</div>';
+
+        // 作物追加フォーム
+        out += '<div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);padding:16px;margin-bottom:16px">';
+        out += '<h3 style="font-weight:bold;font-size:15px;margin-bottom:12px;color:#1f2937">＋ 植えたい作物を追加</h3>';
+        out += '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">';
+        out += '<div style="flex:1;min-width:140px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">作物名</label>';
+        out += '<input id="sgCropName" list="sgCropList" class="input" placeholder="例：ショウガ" style="font-size:14px" onchange="(function(){var n=document.getElementById(\'sgCropName\').value;var d=CROP_DEFAULTS[n];if(d){document.getElementById(\'sgCropFamily\').value=d.family;document.getElementById(\'sgCropSize\').value=d.size;document.getElementById(\'sgSizeLabel\').textContent=d.size+\'%\';}})()"/>';
+        out += '<datalist id="sgCropList">' + Object.keys(CROP_DEFAULTS).map(function(k){return '<option value="'+k+'">';}).join('') + '</datalist></div>';
+        out += '<div style="width:130px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">科目</label>';
+        out += '<select id="sgCropFamily" class="input" style="font-size:13px">' + Object.keys(CROP_FAMILIES).map(function(k){return '<option value="'+k+'">'+k+'</option>';}).join('') + '</select></div>';
+        out += '<div style="width:120px"><label style="font-size:12px;font-weight:bold;color:#6b7280;display:block;margin-bottom:4px">使用面積 <span id="sgSizeLabel" style="color:#16a34a;font-weight:bold">20%</span></label>';
+        out += '<input id="sgCropSize" type="range" min="5" max="100" step="5" value="20" style="width:100%" oninput="document.getElementById(\'sgSizeLabel\').textContent=this.value+\'%\'"/></div>';
+        out += '<button onclick="(function(){';
+        out += 'var n=document.getElementById(\'sgCropName\').value.trim();';
+        out += 'if(!n){alert(\'作物名を入力してください\');return;}';
+        out += 'var f=document.getElementById(\'sgCropFamily\').value;';
+        out += 'var s=parseInt(document.getElementById(\'sgCropSize\').value);';
+        out += 'appState.suggestCrops.push({id:\'sc\'+Date.now(),cropName:n,cropFamily:f,sizePercent:s});';
+        out += 'document.getElementById(\'sgCropName\').value=\'\';';
+        out += 'render();';
+        out += '})()" style="background:#16a34a;color:white;border:none;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer;white-space:nowrap;align-self:flex-end">追加</button>';
+        out += '</div></div>';
+
+        // 追加済み作物リスト
+        if (appState.suggestCrops.length > 0) {
+          out += '<div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);padding:16px;margin-bottom:16px">';
+          out += '<h3 style="font-weight:bold;font-size:15px;margin-bottom:12px;color:#1f2937">植えたい作物リスト（' + appState.suggestCrops.length + '件）</h3>';
+          appState.suggestCrops.forEach(function(c) {
+            var col = (CROP_FAMILIES[c.cropFamily] && CROP_FAMILIES[c.cropFamily].color) || '#999';
+            out += '<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #f3f4f6">';
+            out += '<div style="width:12px;height:12px;background:'+col+';border-radius:3px;flex-shrink:0"></div>';
+            out += '<span style="font-weight:bold;font-size:14px;flex:1">'+c.cropName+'</span>';
+            out += '<span style="font-size:12px;color:#9ca3af">'+c.cropFamily+'</span>';
+            out += '<span style="font-size:12px;background:#f0fdf4;color:#16a34a;padding:2px 8px;border-radius:10px;font-weight:bold">畝の '+c.sizePercent+'%</span>';
+            out += '<button onclick="appState.suggestCrops=appState.suggestCrops.filter(function(x){return x.id!==\''+c.id+'\'});render()" style="background:#fee2e2;color:#dc2626;border:none;padding:3px 8px;border-radius:6px;font-size:12px;cursor:pointer">削除</button>';
+            out += '</div>';
+          });
+          out += '</div>';
+          out += '<button onclick="generateSuggestions()" style="width:100%;background:#1d4ed8;color:white;border:none;padding:14px;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(29,78,216,0.3)">🤖 配置を提案する</button>';
+        } else {
+          out += '<div style="background:#f9fafb;border-radius:10px;padding:30px;text-align:center;color:#9ca3af;font-size:14px">↑ 植えたい作物を追加してください</div>';
+        }
+        out += '</div>';
+
+      } else {
+        // 結果表示
+        var ok = appState.suggestions.filter(function(s){return s.rotStatus==='ok';}).length;
+        var caut = appState.suggestions.filter(function(s){return s.rotStatus==='caution';}).length;
+        out += '<div style="background:#f0fdf4;border:1px solid #86efac;border-radius:10px;padding:14px;margin-bottom:16px;display:flex;gap:16px;flex-wrap:wrap;align-items:center">';
+        out += '<span style="font-size:15px;font-weight:bold;color:#15803d">✅ 配置提案が完成しました</span>';
+        out += '<span style="font-size:13px;color:#166534">適合：'+ok+'件</span>';
+        if (caut) out += '<span style="font-size:13px;color:#d97706">要注意：'+caut+'件</span>';
+        if (appState.suggestUnplaced.length) out += '<span style="font-size:13px;color:#dc2626">配置不可：'+appState.suggestUnplaced.length+'件</span>';
+        out += '</div>';
+
+        // 圃場別に提案をグループ表示
+        var byRidge = {};
+        appState.suggestions.forEach(function(s) {
+          if (!byRidge[s.ridgeId]) byRidge[s.ridgeId] = {fieldName:s.fieldName, ridgeNo:s.ridgeNo, items:[]};
+          byRidge[s.ridgeId].items.push(s);
+        });
+
+        Object.keys(byRidge).forEach(function(ridgeId) {
+          var group = byRidge[ridgeId];
+          out += '<div style="background:white;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);margin-bottom:12px;overflow:hidden">';
+          out += '<div style="background:#374151;color:white;padding:8px 14px;font-weight:bold;font-size:14px">📍 '+group.fieldName+' 畝'+group.ridgeNo+'</div>';
+
+          // 畝バー（既存+提案）
+          out += '<div style="padding:10px 14px 0">';
+          out += '<div style="font-size:10px;color:#9ca3af;display:flex;justify-content:space-between;margin-bottom:2px"><span>北</span><span>南</span></div>';
+          out += '<div style="position:relative;height:28px;background:#f1f5f9;border-radius:6px;overflow:hidden;border:1px solid #e2e8f0">';
+          // 既存の作付け（薄く表示）
+          appState.plantings.filter(function(p){ return p.ridgeId===ridgeId && (p.status==='active'||p.status==='planned'); }).forEach(function(p) {
+            var col = (CROP_FAMILIES[p.cropFamily] && CROP_FAMILIES[p.cropFamily].color) || '#999';
+            out += '<div title="'+p.cropName+'（既存）" style="position:absolute;left:'+p.from+'%;width:'+(p.to-p.from)+'%;height:100%;background:'+col+';opacity:0.3;border-right:1px solid rgba(255,255,255,0.5)"></div>';
+          });
+          // 提案配置（はっきり表示）
+          group.items.forEach(function(s) {
+            var col = (CROP_FAMILIES[s.cropFamily] && CROP_FAMILIES[s.cropFamily].color) || '#999';
+            var border = s.rotStatus === 'caution' ? '2px dashed #f59e0b' : '2px solid rgba(255,255,255,0.6)';
+            out += '<div title="'+s.cropName+'（提案）" style="position:absolute;left:'+s.from+'%;width:'+(s.to-s.from)+'%;height:100%;background:'+col+';border:'+border+';display:flex;align-items:center;justify-content:center;overflow:hidden">';
+            if (s.to - s.from >= 20) out += '<span style="font-size:10px;font-weight:bold;color:white;text-shadow:0 1px 2px rgba(0,0,0,0.6)">'+s.cropName+'</span>';
+            out += '</div>';
+          });
+          out += '</div></div>';
+
+          group.items.forEach(function(s) {
+            var col = (CROP_FAMILIES[s.cropFamily] && CROP_FAMILIES[s.cropFamily].color) || '#999';
+            var rotBadge = s.rotStatus === 'ok'
+              ? '<span style="background:#dcfce7;color:#16a34a;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold">✅ 輪作OK</span>'
+              : '<span style="background:#fef3c7;color:#d97706;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:bold">⚠️ 要注意</span>';
+            out += '<div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid #f3f4f6">';
+            out += '<input type="checkbox" '+(s.selected?'checked':'')+' onchange="(function(){var sg=appState.suggestions.find(function(x){return x.id===\''+s.id+'\'});if(sg)sg.selected=this.checked;})()" style="width:18px;height:18px;cursor:pointer">';
+            out += '<div style="width:12px;height:12px;background:'+col+';border-radius:3px;flex-shrink:0"></div>';
+            out += '<span style="font-weight:bold;font-size:14px;flex:1">'+s.cropName+'</span>';
+            out += '<span style="font-size:12px;color:#9ca3af">'+s.cropFamily+'</span>';
+            out += rotBadge;
+            out += '<span style="font-size:12px;color:#6b7280">'+s.from+'〜'+s.to+'%</span>';
+            out += '</div>';
+          });
+          out += '</div>';
+        });
+
+        // 配置不可リスト
+        if (appState.suggestUnplaced.length) {
+          out += '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px;margin-bottom:16px">';
+          out += '<p style="font-weight:bold;color:#c2410c;margin-bottom:8px">⚠️ 空きスペース不足・輪作NGのため配置できなかった作物</p>';
+          appState.suggestUnplaced.forEach(function(c) {
+            out += '<div style="font-size:13px;color:#9a3412;padding:4px 0">・'+c.cropName+'（'+c.cropFamily+'・畝の'+c.sizePercent+'%必要）</div>';
+          });
+          out += '</div>';
+        }
+
+        out += '<div style="display:flex;gap:10px;flex-wrap:wrap">';
+        out += '<button onclick="addSuggestionsToPlans()" style="flex:1;background:#16a34a;color:white;border:none;padding:14px;border-radius:10px;font-size:15px;font-weight:bold;cursor:pointer;min-width:180px">📅 選択した提案を計画に追加</button>';
+        out += '<button onclick="appState.suggestTab=\'input\';render()" style="background:#e5e7eb;color:#374151;border:none;padding:14px 20px;border-radius:10px;font-size:14px;font-weight:bold;cursor:pointer">← やり直す</button>';
+        out += '</div>';
+      }
+      return out;
     }
 
     function findFamily(name) {
@@ -823,6 +1115,7 @@
               <button onclick="appState.tab='history';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='history'?'bg-green-600 text-white':'bg-white text-gray-700'}">📋 作付け履歴</button>
               <button onclick="appState.tab='warnings';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='warnings'?'bg-green-600 text-white':'bg-white text-gray-700'}">⚠️ 連作警告${warnCount>0?` (${warnCount})`:''}</button>
               <button onclick="appState.tab='plan';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='plan'?'bg-indigo-600 text-white':'bg-white text-indigo-700 border border-indigo-300'}">📅 作付け計画</button>
+              <button onclick="appState.tab='suggest';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='suggest'?'bg-orange-500 text-white':'bg-white text-orange-600 border border-orange-300'}">🤔 配置提案</button>
               <button onclick="appState.tab='guide';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='guide'?'bg-green-600 text-white':'bg-white text-gray-700'}">📚 輪作ガイド</button>
               <button onclick="appState.tab='data';render()" class="px-4 py-2 rounded-lg font-semibold text-sm ${appState.tab==='data'?'bg-green-600 text-white':'bg-white text-gray-700'}">💾 データ管理</button>
             </div>
@@ -1577,6 +1870,16 @@
                 }).join('')}
               </div>
             </div>
+          </div>
+        `;
+      }
+
+      // 配置提案タブ
+      if (appState.tab === 'suggest') {
+        html += `
+          <div>
+            <h2 class="font-bold text-xl mb-4">🤔 配置提案</h2>
+            ${renderSuggestTab()}
           </div>
         `;
       }
