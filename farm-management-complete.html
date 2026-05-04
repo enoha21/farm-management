@@ -545,7 +545,7 @@
       if (appState.suggestTab === 'input') {
         out += '<div style="max-width:720px">';
         out += '<div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#1e40af;line-height:1.7">';
-        out += '💡 <strong>作物名だけ入力すれば</strong>、作付け履歴・輪作ルール・日照・消費量を自動で考慮して最適な畝・区間・株数を提案します。';
+        out += '💡 <strong>作物名だけ入力すれば</strong>、作付け履歴・輪作ルール・日照を自動で考慮して最適な畝・区間・株数を提案します。';
         out += '</div>';
 
         // 作物追加フォーム
@@ -589,7 +589,7 @@
             out += '</div>';
           });
           out += '</div>';
-          out += '<button onclick="generateSuggestions()" style="width:100%;background:#ea580c;color:white;border:none;padding:16px;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(234,88,12,0.3)">🤖 日照・輪作・消費量を考慮して配置を提案する</button>';
+          out += '<button onclick="generateSuggestions()" style="width:100%;background:#ea580c;color:white;border:none;padding:16px;border-radius:10px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(234,88,12,0.3)">🤖 日照・輪作を考慮して配置を提案する</button>';
         } else {
           out += '<div style="background:#f9fafb;border-radius:10px;padding:30px;text-align:center;color:#9ca3af;font-size:14px">↑ 植えたい作物を追加してください</div>';
         }
