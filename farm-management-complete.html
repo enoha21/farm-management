@@ -471,15 +471,24 @@
       if (!d) { el.innerHTML = ''; return; }
       var qty = document.getElementById('sgQty') ? document.getElementById('sgQty').value : '';
       var plants = parseQtyToPlants(qty, d);
+      // 1畝の最大株数
+      var maxPerRidge = Math.floor(RIDGE_LENGTH_CM / d.spacing) * (d.rows || 1);
       var size = calcSizeFromPlants(plants, d);
-      var lengthCm = Math.round(size * RIDGE_LENGTH_CM / 100);
+      var lengthCm = Math.round(Math.ceil(plants / (d.rows||1)) * d.spacing);
+      var overCapacity = plants > maxPerRidge;
+      var ridgesNeeded = overCapacity ? Math.ceil(plants / maxPerRidge) : 1;
       var hLabel = {tall:'🌿高茎', medium:'🌱中茎', short:'🌾低茎'}[d.height] || '';
       el.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
         + '<span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:bold">' + hLabel + '</span>'
-        + '<span style="font-size:12px;color:#374151"><b>' + d.rows + '条植え</b>・株間<b>' + d.spacing + 'cm</b></span>'
-        + '<span style="font-size:12px;color:#374151">→ 約<b>' + plants + '株</b>・畝長<b>' + lengthCm + 'cm</b>（全体の<b>' + size + '%</b>）</span>'
-        + (d.shade ? '<span style="font-size:11px;color:#6b7280">☁️半日陰OK</span>' : '')
+        + '<span style="font-size:12px;color:#374151"><b>' + d.rows + '条植え</b>・株間<b>' + d.spacing + 'cm</b>（1畝最大<b>' + maxPerRidge + '株</b>）</span>'
         + '</div>'
+        + '<div style="margin-top:4px">'
+        + '<span style="font-size:12px;color:#374151">→ 約<b>' + plants + '株</b>・必要畝長<b>' + lengthCm + 'cm</b></span>'
+        + (overCapacity
+            ? ' <span style="background:#fef2f2;color:#dc2626;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:bold">⚠️ 1畝に収まりません（約' + ridgesNeeded + '畝必要）</span>'
+            : ' <span style="font-size:12px;color:#374151">（全体の<b>' + size + '%</b>）</span>')
+        + '</div>'
+        + (d.shade ? '<div style="font-size:11px;color:#6b7280">☁️半日陰OK</div>' : '')
         + '<div style="font-size:11px;color:#9ca3af;margin-top:3px">' + d.harvest + '</div>';
     }
 
@@ -490,6 +499,12 @@
       var d = CROP_INFO[n] || {family:'その他', height:'short', shade:false, rows:1, spacing:30, recPlants:10, seedWeightG:null};
       var qty = document.getElementById('sgQty').value.trim();
       var plants = parseQtyToPlants(qty, d);
+      var maxPerRidge = Math.floor(RIDGE_LENGTH_CM / d.spacing) * (d.rows || 1);
+      if (plants > maxPerRidge) {
+        var ridgesNeeded = Math.ceil(plants / maxPerRidge);
+        if (!confirm(n + ' ' + plants + '株は1畝に収まりません（最大' + maxPerRidge + '株）。\n約' + ridgesNeeded + '畝必要です。\n1畝分（' + maxPerRidge + '株）として追加しますか？')) return;
+        plants = maxPerRidge;
+      }
       var size = calcSizeFromPlants(plants, d);
       appState.suggestCrops.push({
         id:'sc'+Date.now(), cropName:n, cropFamily:d.family,
