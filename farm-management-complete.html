@@ -227,56 +227,94 @@
     }
 
     // ========== 配置提案機能 ==========
-    // 作物情報データベース（高さ・面積・消費量・収穫メモ）
-    // height: tall=高茎(>100cm) / medium=中茎(50-100cm) / short=低茎(<50cm)
-    // size: 畝全長(9.8m)に対する推奨占有率(%)
-    // shade: true=半日陰でも育つ
+    // 畝の寸法
+    const RIDGE_LENGTH_CM = 980; // 9.8m
+    const RIDGE_WIDTH_CM  = 120; // 1.2m
+
+    // 作物情報データベース
+    // rows: 条数（畝幅120cmに何列植えるか）
+    // spacing: 株間(cm)
+    // seedWeightG: 種芋1個の重さ(g)。kg表記の数量から株数を算出するために使用
+    // recPlants: 数量未指定時の推奨株数
     const CROP_INFO = {
-      'トマト':     {family:'ナス科',    height:'tall',   size:30, shade:false, harvest:'週2回・大量収穫。加工（ソース・冷凍）推奨', consumption:'高', storage:'加工で長期'},
-      'ミニトマト': {family:'ナス科',    height:'tall',   size:25, shade:false, harvest:'毎日収穫。2株で家族分', consumption:'高', storage:'1週間'},
-      'ナス':       {family:'ナス科',    height:'tall',   size:25, shade:false, harvest:'週2〜3回。漬物・焼きで大量消費可', consumption:'高', storage:'冷蔵1週間'},
-      'ピーマン':   {family:'ナス科',    height:'medium', size:20, shade:false, harvest:'週2回。冷凍保存◎', consumption:'中', storage:'冷凍で長期'},
-      'トウガラシ': {family:'ナス科',    height:'medium', size:15, shade:false, harvest:'乾燥保存で年中使える。2株で十分', consumption:'低', storage:'乾燥で長期'},
-      'ジャガイモ': {family:'ナス科',    height:'medium', size:35, shade:false, harvest:'一度に全収穫。涼しい場所で長期保存◎', consumption:'高', storage:'数ヶ月'},
-      'キュウリ':   {family:'ウリ科',    height:'tall',   size:25, shade:false, harvest:'毎日収穫必要。2〜3株で家族分', consumption:'高', storage:'3〜4日'},
-      'カボチャ':   {family:'ウリ科',    height:'tall',   size:40, shade:false, harvest:'1株2〜4個。保存◎', consumption:'中', storage:'常温で数ヶ月'},
-      'ズッキーニ': {family:'ウリ科',    height:'medium', size:30, shade:false, harvest:'毎日収穫。大きくなりすぎ注意', consumption:'中', storage:'冷蔵1週間'},
-      'ゴーヤ':     {family:'ウリ科',    height:'tall',   size:30, shade:false, harvest:'棚が必要。好みが分かれる', consumption:'中', storage:'冷蔵1週間'},
-      'キャベツ':   {family:'アブラナ科',height:'medium', size:25, shade:false, harvest:'一度に収穫。冷蔵保存◎', consumption:'高', storage:'冷蔵2〜3週'},
-      'ブロッコリー':{family:'アブラナ科',height:'tall',  size:25, shade:false, harvest:'頂花蕾後も側花蕾が続く', consumption:'高', storage:'冷凍◎'},
-      'コマツナ':   {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'30〜40日で収穫。年中栽培可', consumption:'高', storage:'冷蔵3日'},
-      '水菜':       {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'サラダ・鍋に重宝。成長早い', consumption:'高', storage:'冷蔵3〜4日'},
-      '小カブ':     {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'45日で収穫。葉も食べられる', consumption:'中', storage:'冷蔵1週間'},
-      'ターサイ':   {family:'アブラナ科',height:'short',  size:15, shade:true,  harvest:'冬に強い。炒め物・漬物向き', consumption:'中', storage:'冷蔵1週間'},
-      'ニンジン':   {family:'セリ科',    height:'short',  size:20, shade:false, harvest:'直播き。間引きしながら収穫。保存◎', consumption:'高', storage:'冷蔵1ヶ月'},
-      'パセリ':     {family:'セリ科',    height:'short',  size:10, shade:true,  harvest:'少量で十分。多年草', consumption:'低', storage:'冷凍◎'},
-      'エダマメ':   {family:'マメ科',    height:'medium', size:20, shade:false, harvest:'鮮度が命。2週間ごとにずらし蒔きがコツ', consumption:'高', storage:'冷凍◎'},
-      'インゲン':   {family:'マメ科',    height:'medium', size:20, shade:false, harvest:'夏〜秋。継続的に収穫', consumption:'中', storage:'冷凍◎'},
-      'ソラマメ':   {family:'マメ科',    height:'tall',   size:25, shade:false, harvest:'秋植え春収穫。保存きかないので一気に食べる', consumption:'高', storage:'冷凍◎'},
-      'アピオス':   {family:'マメ科',    height:'tall',   size:20, shade:true,  harvest:'つる性・棚必要。芋と花が食べられる', consumption:'中', storage:'数週間'},
-      'レタス':     {family:'キク科',    height:'short',  size:20, shade:true,  harvest:'春秋が適期。夏は溶けやすい', consumption:'高', storage:'冷蔵3〜4日'},
-      'シュンギク': {family:'キク科',    height:'short',  size:15, shade:true,  harvest:'鍋に必須。成長旺盛', consumption:'高', storage:'冷蔵3日'},
-      'ヤーコン':   {family:'キク科',    height:'tall',   size:30, shade:false, harvest:'1株で大収穫（3〜5kg）。保存◎', consumption:'中', storage:'冷暗所で数ヶ月'},
-      'ホウレンソウ':{family:'ヒユ科',  height:'short',  size:15, shade:true,  harvest:'春秋向き。冷凍保存◎', consumption:'高', storage:'冷凍◎'},
-      'ビーツ':     {family:'ヒユ科',   height:'short',  size:20, shade:true,  harvest:'5株で2〜3ヶ月分。葉も食べられる', consumption:'中', storage:'冷蔵数週間'},
-      'ネギ':       {family:'ヒガンバナ科',height:'medium',size:15,shade:false, harvest:'必要な分だけ切って使える', consumption:'高', storage:'畑で保存可'},
-      'ニラ':       {family:'ヒガンバナ科',height:'short',size:15, shade:true,  harvest:'切っても再生。手間いらず', consumption:'中', storage:'冷蔵3日'},
-      '青シソ':     {family:'シソ科',   height:'medium', size:10, shade:true,  harvest:'2〜3株で十分。こぼれ種で増える', consumption:'中', storage:'冷蔵3日'},
-      'ショウガ':   {family:'ショウガ科',height:'medium', size:25, shade:true,  harvest:'半日陰◎。高茎作物の北側がベスト。1kgで3〜4kg収穫', consumption:'高', storage:'常温で数ヶ月'},
-      '里芋':       {family:'サトイモ科',height:'medium', size:30, shade:true,  harvest:'水分を好む。1kgで4〜6kg収穫。保存◎', consumption:'高', storage:'土中で越冬可'},
-      'サトイモ':   {family:'サトイモ科',height:'medium', size:30, shade:true,  harvest:'水分を好む。保存◎', consumption:'高', storage:'土中で越冬可'},
-      'ツクネイモ': {family:'ヤマノイモ科',height:'tall', size:50, shade:false, harvest:'つる性・支柱必要。10個で畝の約半分。保存◎', consumption:'中', storage:'常温で数ヶ月'},
-      'ナガイモ':   {family:'ヤマノイモ科',height:'tall', size:40, shade:false, harvest:'つる性・深根性。保存◎', consumption:'中', storage:'常温で数ヶ月'},
-      'ヤマイモ':   {family:'ヤマノイモ科',height:'tall', size:40, shade:false, harvest:'つる性。保存◎', consumption:'中', storage:'常温で数ヶ月'},
-      'トウモロコシ':{family:'イネ科',  height:'tall',   size:35, shade:false, harvest:'風媒花のため固めて植える。鮮度が命・収穫後即食べる', consumption:'高', storage:'冷凍◎'},
-      'オクラ':     {family:'アオイ科', height:'tall',   size:20, shade:false, harvest:'毎日収穫必要（大きくなりすぎ注意）。2〜3株', consumption:'中', storage:'冷蔵3日'},
-      'モロヘイヤ': {family:'アオイ科', height:'tall',   size:20, shade:false, harvest:'夏の栄養野菜。2〜3株で十分', consumption:'中', storage:'冷凍◎'},
-      'イチゴ':     {family:'バラ科',   height:'short',  size:25, shade:false, harvest:'ランナーで増える。春に集中収穫', consumption:'高', storage:'2〜3日'},
-      'アスパラガス':{family:'ユリ科',  height:'tall',   size:35, shade:false, harvest:'3年後から本収穫。永年作物・場所固定', consumption:'高', storage:'冷蔵3日'},
-      'キャッサバ': {family:'トウダイグサ科',height:'tall',size:40,shade:false, harvest:'熱帯作物。温暖地向き', consumption:'中', storage:'加工が必要'},
+      'トマト':     {family:'ナス科',    height:'tall',   shade:false, rows:1, spacing:60, recPlants:2,  seedWeightG:null, harvest:'週2回・大量収穫。加工推奨', consumption:'高', storage:'加工で長期'},
+      'ミニトマト': {family:'ナス科',    height:'tall',   shade:false, rows:1, spacing:50, recPlants:2,  seedWeightG:null, harvest:'毎日収穫。2株で家族分', consumption:'高', storage:'1週間'},
+      'ナス':       {family:'ナス科',    height:'tall',   shade:false, rows:1, spacing:50, recPlants:3,  seedWeightG:null, harvest:'週2〜3回。漬物・焼きで大量消費可', consumption:'高', storage:'冷蔵1週間'},
+      'ピーマン':   {family:'ナス科',    height:'medium', shade:false, rows:1, spacing:40, recPlants:2,  seedWeightG:null, harvest:'週2回。冷凍保存◎', consumption:'中', storage:'冷凍で長期'},
+      'トウガラシ': {family:'ナス科',    height:'medium', shade:false, rows:1, spacing:40, recPlants:2,  seedWeightG:null, harvest:'乾燥保存で年中使える。2株で十分', consumption:'低', storage:'乾燥で長期'},
+      'ジャガイモ': {family:'ナス科',    height:'medium', shade:false, rows:1, spacing:30, recPlants:10, seedWeightG:50,   harvest:'一度に全収穫。涼しい場所で長期保存◎', consumption:'高', storage:'数ヶ月'},
+      'キュウリ':   {family:'ウリ科',    height:'tall',   shade:false, rows:1, spacing:50, recPlants:3,  seedWeightG:null, harvest:'毎日収穫必要。2〜3株で家族分', consumption:'高', storage:'3〜4日'},
+      'カボチャ':   {family:'ウリ科',    height:'tall',   shade:false, rows:1, spacing:100,recPlants:2,  seedWeightG:null, harvest:'1株2〜4個。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'ズッキーニ': {family:'ウリ科',    height:'medium', shade:false, rows:1, spacing:80, recPlants:2,  seedWeightG:null, harvest:'毎日収穫。大きくなりすぎ注意', consumption:'中', storage:'冷蔵1週間'},
+      'ゴーヤ':     {family:'ウリ科',    height:'tall',   shade:false, rows:1, spacing:50, recPlants:2,  seedWeightG:null, harvest:'棚が必要。好みが分かれる', consumption:'中', storage:'冷蔵1週間'},
+      'キャベツ':   {family:'アブラナ科',height:'medium', shade:false, rows:1, spacing:45, recPlants:4,  seedWeightG:null, harvest:'一度に収穫。冷蔵保存◎', consumption:'高', storage:'冷蔵2〜3週'},
+      'ブロッコリー':{family:'アブラナ科',height:'tall',  shade:false, rows:1, spacing:45, recPlants:4,  seedWeightG:null, harvest:'頂花蕾後も側花蕾が続く', consumption:'高', storage:'冷凍◎'},
+      'コマツナ':   {family:'アブラナ科',height:'short',  shade:true,  rows:3, spacing:10, recPlants:30, seedWeightG:null, harvest:'30〜40日で収穫。年中栽培可', consumption:'高', storage:'冷蔵3日'},
+      '水菜':       {family:'アブラナ科',height:'short',  shade:true,  rows:2, spacing:15, recPlants:20, seedWeightG:null, harvest:'サラダ・鍋に重宝。成長早い', consumption:'高', storage:'冷蔵3〜4日'},
+      '小カブ':     {family:'アブラナ科',height:'short',  shade:true,  rows:3, spacing:10, recPlants:30, seedWeightG:null, harvest:'45日で収穫。葉も食べられる', consumption:'中', storage:'冷蔵1週間'},
+      'ターサイ':   {family:'アブラナ科',height:'short',  shade:true,  rows:2, spacing:20, recPlants:15, seedWeightG:null, harvest:'冬に強い。炒め物・漬物向き', consumption:'中', storage:'冷蔵1週間'},
+      'ニンジン':   {family:'セリ科',    height:'short',  shade:false, rows:3, spacing:10, recPlants:30, seedWeightG:null, harvest:'直播き。間引きしながら収穫。保存◎', consumption:'高', storage:'冷蔵1ヶ月'},
+      'パセリ':     {family:'セリ科',    height:'short',  shade:true,  rows:2, spacing:20, recPlants:4,  seedWeightG:null, harvest:'少量で十分。多年草', consumption:'低', storage:'冷凍◎'},
+      'エダマメ':   {family:'マメ科',    height:'medium', shade:false, rows:2, spacing:25, recPlants:12, seedWeightG:null, harvest:'鮮度が命。2週間ごとにずらし蒔きがコツ', consumption:'高', storage:'冷凍◎'},
+      'インゲン':   {family:'マメ科',    height:'medium', shade:false, rows:2, spacing:20, recPlants:16, seedWeightG:null, harvest:'夏〜秋。継続的に収穫', consumption:'中', storage:'冷凍◎'},
+      'ソラマメ':   {family:'マメ科',    height:'tall',   shade:false, rows:1, spacing:25, recPlants:8,  seedWeightG:null, harvest:'秋植え春収穫。保存きかないので一気に食べる', consumption:'高', storage:'冷凍◎'},
+      'アピオス':   {family:'マメ科',    height:'tall',   shade:true,  rows:1, spacing:30, recPlants:3,  seedWeightG:null, harvest:'つる性・棚必要。芋と花が食べられる', consumption:'中', storage:'数週間'},
+      'レタス':     {family:'キク科',    height:'short',  shade:true,  rows:2, spacing:30, recPlants:6,  seedWeightG:null, harvest:'春秋が適期。夏は溶けやすい', consumption:'高', storage:'冷蔵3〜4日'},
+      'シュンギク': {family:'キク科',    height:'short',  shade:true,  rows:3, spacing:10, recPlants:20, seedWeightG:null, harvest:'鍋に必須。成長旺盛', consumption:'高', storage:'冷蔵3日'},
+      'ヤーコン':   {family:'キク科',    height:'tall',   shade:false, rows:1, spacing:60, recPlants:3,  seedWeightG:null, harvest:'1株で大収穫（3〜5kg）。保存◎', consumption:'中', storage:'冷暗所で数ヶ月'},
+      'ホウレンソウ':{family:'ヒユ科',  height:'short',  shade:true,  rows:3, spacing:10, recPlants:30, seedWeightG:null, harvest:'春秋向き。冷凍保存◎', consumption:'高', storage:'冷凍◎'},
+      'ビーツ':     {family:'ヒユ科',   height:'short',  shade:true,  rows:2, spacing:20, recPlants:5,  seedWeightG:null, harvest:'5株で2〜3ヶ月分。葉も食べられる', consumption:'中', storage:'冷蔵数週間'},
+      'ネギ':       {family:'ヒガンバナ科',height:'medium',shade:false, rows:2, spacing:10, recPlants:20, seedWeightG:null, harvest:'必要な分だけ切って使える', consumption:'高', storage:'畑で保存可'},
+      'ニラ':       {family:'ヒガンバナ科',height:'short',shade:true,  rows:3, spacing:10, recPlants:20, seedWeightG:null, harvest:'切っても再生。手間いらず', consumption:'中', storage:'冷蔵3日'},
+      '青シソ':     {family:'シソ科',   height:'medium', shade:true,  rows:1, spacing:20, recPlants:3,  seedWeightG:null, harvest:'2〜3株で十分。こぼれ種で増える', consumption:'中', storage:'冷蔵3日'},
+      'ショウガ':   {family:'ショウガ科',height:'medium', shade:true,  rows:2, spacing:15, recPlants:20, seedWeightG:45,   harvest:'半日陰◎。高茎作物の北側がベスト。1kgで3〜4kg収穫', consumption:'高', storage:'常温で数ヶ月'},
+      '里芋':       {family:'サトイモ科',height:'medium', shade:true,  rows:1, spacing:45, recPlants:8,  seedWeightG:60,   harvest:'水分を好む。1kgで4〜6kg収穫。保存◎', consumption:'高', storage:'土中で越冬可'},
+      'サトイモ':   {family:'サトイモ科',height:'medium', shade:true,  rows:1, spacing:45, recPlants:8,  seedWeightG:60,   harvest:'水分を好む。保存◎', consumption:'高', storage:'土中で越冬可'},
+      'ツクネイモ': {family:'ヤマノイモ科',height:'tall', shade:false, rows:1, spacing:30, recPlants:10, seedWeightG:null, harvest:'つる性・支柱必要。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'ナガイモ':   {family:'ヤマノイモ科',height:'tall', shade:false, rows:1, spacing:30, recPlants:6,  seedWeightG:null, harvest:'つる性・深根性。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'ヤマイモ':   {family:'ヤマノイモ科',height:'tall', shade:false, rows:1, spacing:30, recPlants:6,  seedWeightG:null, harvest:'つる性。保存◎', consumption:'中', storage:'常温で数ヶ月'},
+      'トウモロコシ':{family:'イネ科',  height:'tall',   shade:false, rows:2, spacing:30, recPlants:8,  seedWeightG:null, harvest:'風媒花のため2条以上まとめて植える。鮮度が命', consumption:'高', storage:'冷凍◎'},
+      'オクラ':     {family:'アオイ科', height:'tall',   shade:false, rows:1, spacing:30, recPlants:3,  seedWeightG:null, harvest:'毎日収穫必要（大きくなりすぎ注意）。2〜3株', consumption:'中', storage:'冷蔵3日'},
+      'モロヘイヤ': {family:'アオイ科', height:'tall',   shade:false, rows:1, spacing:30, recPlants:3,  seedWeightG:null, harvest:'夏の栄養野菜。2〜3株で十分', consumption:'中', storage:'冷凍◎'},
+      'イチゴ':     {family:'バラ科',   height:'short',  shade:false, rows:2, spacing:30, recPlants:10, seedWeightG:null, harvest:'ランナーで増える。春に集中収穫', consumption:'高', storage:'2〜3日'},
+      'アスパラガス':{family:'ユリ科',  height:'tall',   shade:false, rows:1, spacing:40, recPlants:5,  seedWeightG:null, harvest:'3年後から本収穫。永年作物・場所固定', consumption:'高', storage:'冷蔵3日'},
+      'キャッサバ': {family:'トウダイグサ科',height:'tall',shade:false, rows:1, spacing:100,recPlants:2, seedWeightG:null, harvest:'熱帯作物。温暖地向き', consumption:'中', storage:'加工が必要'},
     };
-    // 後方互換
-    const CROP_DEFAULTS = Object.fromEntries(Object.entries(CROP_INFO).map(([k,v])=>[k,{family:v.family,size:v.size}]));
+    // 後方互換（CROP_DEFAULTSを参照している箇所向け）
+    const CROP_DEFAULTS = Object.fromEntries(Object.entries(CROP_INFO).map(function(e){return [e[0],{family:e[1].family,size:calcSizeFromPlants(e[1].recPlants,e[1])}];}));
+
+    // 株数→畝使用率(%)を計算（畝長9.8m基準）
+    function calcSizeFromPlants(plants, info) {
+      var rows = info.rows || 1;
+      var spacing = info.spacing || 30;
+      var lengthCm = Math.ceil(plants / rows) * spacing;
+      lengthCm = Math.min(RIDGE_LENGTH_CM, Math.max(spacing, lengthCm));
+      return Math.max(5, Math.round(lengthCm / RIDGE_LENGTH_CM * 100));
+    }
+
+    // 数量文字列→株数を推定
+    function parseQtyToPlants(qtyStr, info) {
+      if (!qtyStr) return info.recPlants || 10;
+      var s = qtyStr.trim();
+      // kg表記（例: "1kg", "0.5kg"）
+      var kgMatch = s.match(/^([0-9.]+)\s*kg$/i);
+      if (kgMatch && info.seedWeightG) {
+        var grams = parseFloat(kgMatch[1]) * 1000;
+        return Math.max(1, Math.round(grams / info.seedWeightG));
+      }
+      // g表記
+      var gMatch = s.match(/^([0-9.]+)\s*g$/i);
+      if (gMatch && info.seedWeightG) {
+        return Math.max(1, Math.round(parseFloat(gMatch[1]) / info.seedWeightG));
+      }
+      // 個・株・本・粒（数字+単位）
+      var countMatch = s.match(/^([0-9]+)\s*(個|株|本|粒|苗)?$/);
+      if (countMatch) return parseInt(countMatch[1]);
+      // 先頭の数字だけ取れる場合
+      var numMatch = s.match(/([0-9]+)/);
+      if (numMatch) return parseInt(numMatch[1]);
+      return info.recPlants || 10;
+    }
 
     // 空きスペースを計算（予約済みスペースを考慮）
     function findFreeSpaces(ridgeId, reservations) {
@@ -423,29 +461,42 @@
       render();
     }
 
-    // 作物名入力時のプレビュー更新（onchange から呼ぶ）
+    // 作物名・数量入力時のプレビュー更新
     function updateSuggestInfo(name) {
       var el = document.getElementById('sgInfoBox');
       if (!el) return;
       var d = CROP_INFO[name];
       if (!d) { el.innerHTML = ''; return; }
+      var qty = document.getElementById('sgQty') ? document.getElementById('sgQty').value : '';
+      var plants = parseQtyToPlants(qty, d);
+      var size = calcSizeFromPlants(plants, d);
+      var lengthCm = Math.round(size * RIDGE_LENGTH_CM / 100);
       var hLabel = {tall:'🌿高茎', medium:'🌱中茎', short:'🌾低茎'}[d.height] || '';
-      el.innerHTML = '<span style="font-size:12px;color:#374151">'
-        + '<b>' + hLabel + '</b> ／ 推奨面積<b>' + d.size + '%</b> ／ '
-        + (d.shade ? '☁️半日陰OK ／ ' : '')
-        + '消費量：' + d.consumption + ' ／ ' + d.harvest
-        + '</span>';
+      el.innerHTML = '<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">'
+        + '<span style="background:#f0fdf4;color:#15803d;padding:2px 8px;border-radius:6px;font-size:12px;font-weight:bold">' + hLabel + '</span>'
+        + '<span style="font-size:12px;color:#374151"><b>' + d.rows + '条植え</b>・株間<b>' + d.spacing + 'cm</b></span>'
+        + '<span style="font-size:12px;color:#374151">→ 約<b>' + plants + '株</b>・畝長<b>' + lengthCm + 'cm</b>（全体の<b>' + size + '%</b>）</span>'
+        + (d.shade ? '<span style="font-size:11px;color:#6b7280">☁️半日陰OK</span>' : '')
+        + '</div>'
+        + '<div style="font-size:11px;color:#9ca3af;margin-top:3px">' + d.harvest + '</div>';
     }
 
-    // 作物追加（追加ボタンから呼ぶ）
+    // 作物追加（株数・面積を自動計算して登録）
     function addSuggestCrop() {
       var n = document.getElementById('sgCropName').value.trim();
       if (!n) { alert('作物名を入力してください'); return; }
-      var d = CROP_INFO[n] || {family:'その他', size:20, height:'short', shade:false};
+      var d = CROP_INFO[n] || {family:'その他', height:'short', shade:false, rows:1, spacing:30, recPlants:10, seedWeightG:null};
       var qty = document.getElementById('sgQty').value.trim();
-      appState.suggestCrops.push({id:'sc'+Date.now(), cropName:n, cropFamily:d.family, sizePercent:d.size, height:d.height, shade:d.shade, qty:qty});
+      var plants = parseQtyToPlants(qty, d);
+      var size = calcSizeFromPlants(plants, d);
+      appState.suggestCrops.push({
+        id:'sc'+Date.now(), cropName:n, cropFamily:d.family,
+        sizePercent:size, height:d.height, shade:d.shade,
+        qty:qty, plants:plants, rows:d.rows, spacing:d.spacing
+      });
       document.getElementById('sgCropName').value = '';
       document.getElementById('sgQty').value = '';
+      var el = document.getElementById('sgInfoBox'); if(el) el.innerHTML = '';
       render();
     }
 
