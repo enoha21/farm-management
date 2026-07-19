@@ -187,6 +187,22 @@
       render();
     });
 
+    // 画面回転・ウィンドウサイズ変更時に再描画（スマホ/PC表示の切替を反映）
+    // 300ms待ってから1回だけ実行（連続発火による無駄な再描画を防ぐ）
+    // 横幅が変わった時のみ実行：スマホの文字入力キーボード開閉（縦幅のみ変化）で
+    // 再描画すると入力中の内容が消えるため
+    let _resizeTimer = null;
+    let _lastWidth = window.innerWidth;
+    window.addEventListener('resize', function() {
+      clearTimeout(_resizeTimer);
+      _resizeTimer = setTimeout(function() {
+        if (window.innerWidth !== _lastWidth) {
+          _lastWidth = window.innerWidth;
+          render();
+        }
+      }, 300);
+    });
+
     // ========== 保存・読み込み（Firebase + localStorage） ==========
 
     // ===== 世代バックアップ =====
@@ -1184,13 +1200,27 @@
     }
 
     function saveData() {
-      if (!appState.form.cropName.trim()) {
+      const f = appState.form;
+      if (!f.cropName.trim()) {
         alert("作物名を入力してください");
         return;
       }
-      if (!appState.form.plantDate) {
+      if (!f.plantDate) {
         alert("植付日を入力してください");
         return;
+      }
+      // 数値欄が空・不正のとき（NaN）は既定値に戻す
+      if (!Number.isFinite(f.from)) f.from = 0;
+      if (!Number.isFinite(f.to)) f.to = 100;
+      if (f.from >= f.to) {
+        alert("区間は「開始 < 終了」にしてください（現在：北" + f.from + "% 〜 南" + f.to + "%）");
+        return;
+      }
+      // 年度は植付日から自動算出（手入力ミスによる連作警告の誤作動を防ぐ）
+      f.year = parseInt(f.plantDate.substring(0, 4));
+      // 科目が「その他」のままだと連作チェックの対象外になるため確認
+      if (f.cropFamily === 'その他') {
+        if (!confirm('作物科目が「その他」のままです。\n「その他」は連作障害のチェック対象外になります。\nこのまま保存しますか？')) return;
       }
       if (appState.editId) {
         appState.plantings = appState.plantings.map(p =>
@@ -1502,7 +1532,7 @@
       if (appState.tab === 'input') {
         html += `
           <div>
-            <button onclick="appState.showForm=true;appState.editId=null;appState.form={ridgeId:'F1R1',cropName:'',cropFamily:'その他',variety:'',count:'',from:0,to:100,plantDate:'',harvestDate:'',year:2026,season:'春夏',status:'active',notes:''};render()" class="mb-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700">＋ 新しい作付けを追加</button>
+            <button onclick="appState.showForm=true;appState.editId=null;appState.form={ridgeId:'F1R1',cropName:'',cropFamily:'その他',variety:'',count:'',from:0,to:100,plantDate:todayStr(),harvestDate:'',year:_thisYear,season:'春夏',status:'active',notes:''};render()" class="mb-3 bg-green-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-green-700">＋ 新しい作付けを追加</button>
 
             ${appState.showForm ? `
             <div class="bg-white rounded-lg shadow p-4 mb-4">
@@ -1516,7 +1546,8 @@
                 </div>
                 <div>
                   <label class="label">作物名 *</label>
-                  <input class="input" type="text" value="${appState.form.cropName}" onchange="appState.form.cropName=this.value;appState.form.cropFamily=findFamily(this.value);render()" placeholder="トマト"/>
+                  <input class="input" type="text" list="cropNameList" value="${appState.form.cropName}" onchange="appState.form.cropName=this.value;appState.form.cropFamily=findFamily(this.value);render()" placeholder="トマト"/>
+                  <datalist id="cropNameList">${[...new Set(Object.values(CROP_FAMILIES).flatMap(f=>f.crops))].map(c=>`<option value="${c}">`).join('')}</datalist>
                 </div>
                 <div>
                   <label class="label">品種</label>
@@ -1537,7 +1568,7 @@
                 </div>
                 <div>
                   <label class="label">植付日 *</label>
-                  <input class="input" type="date" value="${appState.form.plantDate}" onchange="appState.form.plantDate=this.value"/>
+                  <input class="input" type="date" value="${appState.form.plantDate}" onchange="appState.form.plantDate=this.value;var y=parseInt(this.value.substring(0,4));if(y){appState.form.year=y;var el=document.getElementById('formYear');if(el)el.value=y;}"/>
                 </div>
                 <div>
                   <label class="label">収穫予定日</label>
@@ -1553,8 +1584,8 @@
                   </select>
                 </div>
                 <div>
-                  <label class="label">年度</label>
-                  <input class="input" type="number" value="${appState.form.year}" onchange="appState.form.year=parseInt(this.value)"/>
+                  <label class="label">年度（植付日から自動設定）</label>
+                  <input class="input" id="formYear" type="number" value="${appState.form.year}" readonly style="background:#f3f4f6;color:#6b7280;cursor:not-allowed"/>
                 </div>
                 <div>
                   <label class="label">区間（北=0% 南=100%）</label>
@@ -2184,8 +2215,6 @@
       app.innerHTML = html;
     }
 
-    // 初期表示
-    render();
   </script>
 </body>
 </html>
