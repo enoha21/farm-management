@@ -54,6 +54,13 @@
     let currentUser = null;
     let authLoading = true;
     let syncStatus = 'loading';
+    let cloudLoaded = false;   // クラウドの最新データを読み込み終えるまでクラウド保存を禁止するフラグ
+
+    // 端末のタイムゾーン基準で "YYYY-MM-DD" を返す
+    // （toISOString()はUTC基準のため日本では朝9時まで前日の日付になる）
+    function todayStr() {
+      return new Date().toLocaleDateString('sv-SE');
+    }
 
     try {
       firebase.initializeApp(firebaseConfig);
@@ -114,7 +121,7 @@
       {id:2,name:"圃場2",loc:"南側"},
     ];
 
-    const _todayStr = new Date().toISOString().split('T')[0];
+    const _todayStr = todayStr();
     const _thisYear = new Date().getFullYear();
 
     let appState = {
@@ -161,6 +168,10 @@
       firebaseAuth.onAuthStateChanged(function(user) {
         currentUser = user;
         authLoading = false;
+        // ログイン状態が変わったら読込完了フラグをリセット
+        // （別アカウントでログインし直した場合の誤上書きを防ぐ）
+        cloudLoaded = false;
+        _backupDoneFor = null;
         if (user) {
           loadDataFromFirebase();
         } else {
@@ -177,12 +188,47 @@
     });
 
     // ========== 保存・読み込み（Firebase + localStorage） ==========
+
+    // ===== 世代バックアップ =====
+    // 1日1回、その日最初のデータを users/{uid}/backups/{YYYY-MM-DD} に退避する。
+    // 30日より古い世代は自動で間引く。
+    const BACKUP_KEEP_DAYS = 30;
+    let _backupDoneFor = null;  // その日の退避が済んでいれば日付文字列が入る（無駄な通信を省く）
+
+    function ensureDailyBackup(data) {
+      if (!firebaseDb || !currentUser) return;
+      var key = todayStr();
+      if (_backupDoneFor === key) return;
+      var backupsRef = firebaseDb.ref('users/' + currentUser.uid + '/backups');
+      var cutoff = new Date(Date.now() - BACKUP_KEEP_DAYS * 86400000).toLocaleDateString('sv-SE');
+      // 深いコピーを取ってから退避（後からの編集がバックアップに混入しないように）
+      var snapshotData = JSON.parse(JSON.stringify({ plantings: data.plantings || [], plans: data.plans || [] }));
+      // transaction：既にその日のキーがあれば何もしない（1日1回・上書きなし）
+      backupsRef.child(key).transaction(function(cur) {
+        if (cur !== null) return cur;
+        return { plantings: snapshotData.plantings, plans: snapshotData.plans, savedAt: new Date().toISOString() };
+      }).then(function() {
+        _backupDoneFor = key;
+        // 保持期限より古い世代を削除
+        return backupsRef.orderByKey().endAt(cutoff).once('value');
+      }).then(function(snap) {
+        var removals = [];
+        snap.forEach(function(child) { if (child.key < cutoff) removals.push(child.ref.remove()); });
+        return Promise.all(removals);
+      }).catch(function(e) {
+        console.warn('世代バックアップ処理でエラー:', e);
+      });
+    }
+
     function autoSave() {
       const data = { plantings: appState.plantings, plans: appState.plans };
       // ローカルバックアップ
       try { localStorage.setItem('farmAppData', JSON.stringify(data)); } catch(e) {}
       // クラウド保存（ログイン時のみ）
       if (!firebaseDb || !currentUser) { syncStatus = 'offline'; updateSyncIndicator(); return; }
+      // クラウドの読込が完了する前は書き込まない（空・古いデータでの上書き事故を防止）
+      if (!cloudLoaded) { syncStatus = 'loading'; updateSyncIndicator(); return; }
+      ensureDailyBackup(data);
       syncStatus = 'saving';
       updateSyncIndicator();
       const uid = currentUser.uid;
@@ -217,7 +263,12 @@
           appState.plantings = data.plantings || [];
           appState.plans = data.plans || [];
           try { localStorage.setItem('farmAppData', JSON.stringify({ plantings: appState.plantings, plans: appState.plans })); } catch(e) {}
+          // その日最初の状態を世代バックアップとして退避（編集前の姿が残る）
+          ensureDailyBackup(data);
         }
+        // 読込完了 → 以後クラウド保存を許可
+        // （読込失敗時は cloudLoaded=false のままなのでクラウドは上書きされない）
+        cloudLoaded = true;
         syncStatus = 'synced';
       } catch(e) {
         syncStatus = 'offline';
@@ -835,7 +886,7 @@
         count: '',
         from: plan.from,
         to: plan.to,
-        plantDate: new Date().toISOString().split('T')[0],
+        plantDate: todayStr(),
         harvestDate: plan.endMonth ? plan.endMonth + '-28' : '',
         year: startYear,
         season: season,
@@ -1150,7 +1201,7 @@
       }
       appState.showForm = false;
       appState.editId = null;
-      const _t = new Date().toISOString().split('T')[0];
+      const _t = todayStr();
       appState.form = {ridgeId:'F1R1',cropName:'',cropFamily:'その他',variety:'',count:'',from:0,to:100,plantDate:_t,harvestDate:'',year:new Date().getFullYear(),season:'春夏',status:'active',notes:''};
       autoSave();
       render();
@@ -1167,7 +1218,7 @@
     async function exportJSON() {
       const data = {exportDate: new Date().toISOString(), plantings: appState.plantings, plans: appState.plans};
       const json = JSON.stringify(data, null, 2);
-      const fileName = `farm-plantings-${new Date().toISOString().split('T')[0]}.json`;
+      const fileName = `farm-plantings-${todayStr()}.json`;
 
       // File System Access API 対応ブラウザ（Chrome等）：保存先を選択できる
       if (window.showSaveFilePicker) {
@@ -1179,6 +1230,7 @@
           const writable = await handle.createWritable();
           await writable.write(json);
           await writable.close();
+          markExported();
           alert('保存しました。');
           return;
         } catch(e) {
@@ -1196,6 +1248,24 @@
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
+      markExported();
+    }
+
+    // エクスポート日時を記録し、表示を更新する
+    function markExported() {
+      try { localStorage.setItem('lastExport', new Date().toISOString()); } catch(e) {}
+      render();
+    }
+
+    // 「最終バックアップ：○日前」の表示情報を返す
+    const EXPORT_WARN_DAYS = 30;
+    function getLastExportInfo() {
+      let last = null;
+      try { last = localStorage.getItem('lastExport'); } catch(e) {}
+      if (!last) return { text: 'まだ一度もファイル保存されていません', warn: true };
+      const days = Math.floor((Date.now() - new Date(last).getTime()) / 86400000);
+      const when = days <= 0 ? '今日' : days + '日前';
+      return { text: '最終バックアップ：' + when + '（' + new Date(last).toLocaleDateString('ja-JP') + '）', warn: days > EXPORT_WARN_DAYS };
     }
 
     function importJSON(file) {
@@ -1556,7 +1626,7 @@
                         </div>
                         <div style="display:flex;gap:6px;flex-shrink:0">
                           ${p.status === 'active' || p.status === 'planned' ? `
-                            <button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='completed';var d=new Date().toISOString().split('T')[0];if(!appState.plantings[idx].harvestDate)appState.plantings[idx].harvestDate=d;}autoSave();render();})()" style="background:#d1fae5;color:#065f46;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✅ 収穫済</button>
+                            <button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='completed';var d=todayStr();if(!appState.plantings[idx].harvestDate)appState.plantings[idx].harvestDate=d;}autoSave();render();})()" style="background:#d1fae5;color:#065f46;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✅ 収穫済</button>
                             <button onclick="(function(){var idx=appState.plantings.findIndex(function(x){return x.id==='${p.id}'});if(idx>=0){appState.plantings[idx].status='failed';}autoSave();render();})()" style="background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">❌ 失敗</button>
                           ` : ''}
                           <button onclick="appState.editId='${p.id}';appState.showForm=true;appState.form={...appState.plantings.find(x=>x.id==='${p.id}')};render()" style="background:#dbeafe;color:#1e40af;border:none;padding:5px 10px;border-radius:6px;font-size:12px;cursor:pointer;font-weight:bold">✏️ 編集</button>
@@ -1625,7 +1695,7 @@
                       <tbody>
                         ${entry.hist.map(p => `
                         <tr style="border-bottom:1px solid #e5e7eb">
-                          <td style="padding:10px 8px"><span style="background:${CROP_FAMILIES[p.cropFamily].color};color:white;padding:4px 8px;border-radius:4px;font-weight:bold;font-size:12px">${p.cropName}</span></td>
+                          <td style="padding:10px 8px"><span style="background:${(CROP_FAMILIES[p.cropFamily]&&CROP_FAMILIES[p.cropFamily].color)||'#999'};color:white;padding:4px 8px;border-radius:4px;font-weight:bold;font-size:12px">${p.cropName}</span></td>
                           <td style="padding:10px 8px;color:#666">${p.cropFamily}</td>
                           <td style="padding:10px 8px;color:#666">${p.plantDate}</td>
                           <td style="padding:10px 8px;color:#666">${p.harvestDate || '—'}</td>
@@ -2033,7 +2103,7 @@
                       ${hist.map(p=>{
                         const startDate = p.plantDate ? p.plantDate.substring(5) : '?';
                         const endDate = p.harvestDate ? p.harvestDate.substring(5) : '現在';
-                        return `<div style="background:${CROP_FAMILIES[p.cropFamily].color};color:white;padding:10px;border-radius:6px;font-size:11px;font-weight:bold;text-align:center;line-height:1.5;box-shadow:0 2px 4px rgba(0,0,0,0.1)"><div style="font-size:10px;opacity:0.9;margin-bottom:4px">${startDate}〜${endDate}</div><div style="font-size:12px">${p.cropName}</div></div>`;
+                        return `<div style="background:${(CROP_FAMILIES[p.cropFamily]&&CROP_FAMILIES[p.cropFamily].color)||'#999'};color:white;padding:10px;border-radius:6px;font-size:11px;font-weight:bold;text-align:center;line-height:1.5;box-shadow:0 2px 4px rgba(0,0,0,0.1)"><div style="font-size:10px;opacity:0.9;margin-bottom:4px">${startDate}〜${endDate}</div><div style="font-size:12px">${p.cropName}</div></div>`;
                       }).join('')}
                     </div>`}
                   </div>
@@ -2065,6 +2135,12 @@
               <div class="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-4">
                 <h4 class="font-bold text-green-800 mb-2">📥 データをファイルに保存</h4>
                 <p class="text-sm text-gray-700 mb-3">現在の作付け情報をJSON形式で保存します。</p>
+                ${(() => {
+                  const ei = getLastExportInfo();
+                  return ei.warn
+                    ? `<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:13px;color:#92400e;font-weight:bold">⚠️ ${ei.text}。定期的なファイル保存をおすすめします。</div>`
+                    : `<div style="font-size:13px;color:#166534;margin-bottom:10px">✅ ${ei.text}</div>`;
+                })()}
                 <button onclick="exportJSON()" class="btn btn-green">📥 JSONファイルで保存</button>
               </div>
 

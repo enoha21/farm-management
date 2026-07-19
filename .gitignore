@@ -1,0 +1,25 @@
+# ===== 個人情報・営農記録（絶対に公開しない） =====
+# 家計簿などのExcelファイル
+*.xlsx
+*.xlsm
+
+# アプリからエクスポートした営農記録JSON
+farm-plantings-*.json
+
+# ===== アプリ本体に不要な同居ファイル =====
+# 別プロジェクトの引き継ぎメモ
+cf31_*.md
+
+# 家計簿レポート生成スクリプト（別プロジェクト）
+create_household_*.js
+create_household_*.py
+
+# 旧React版の残骸
+farm-management-app.jsx
+
+# 作業用ドキュメント（公開リポジトリに載せない）
+動作確認手順書_*.md
+
+# ===== ツール・環境の設定 =====
+# Claude Code のローカル設定
+.claude/
