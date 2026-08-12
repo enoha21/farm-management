@@ -810,6 +810,7 @@
     function getActiveInYear(ridgeId, year) {
       return appState.plantings.filter(p => {
         if (p.ridgeId !== ridgeId) return false;
+        if (p.status === 'failed') return false;
         const sy = parseInt((p.plantDate||'').substring(0,4));
         const ey = p.harvestDate ? parseInt(p.harvestDate.substring(0,4)) : sy;
         return sy <= year && ey >= year;
