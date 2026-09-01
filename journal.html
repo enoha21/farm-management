@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>農園日誌</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<style>
+:root{
+  --paper:#E9EBE3; --card:#F4F5EF; --grid:#D6DACD; --rule:#C2C8B9;
+  --ink:#232821; --ink2:#5C635A; --ink3:#8A9086;
+  --mark:#C4442B; --mark-soft:#F2DAD3; --ok:#3C6E52;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",YuGothic,"Noto Sans JP",sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--paper);
+  background-image:
+    repeating-linear-gradient(to right,var(--grid) 0 1px,transparent 1px 28px),
+    repeating-linear-gradient(to bottom,var(--grid) 0 1px,transparent 1px 28px);
+  color:var(--ink); font-family:var(--jp); font-size:15px; line-height:1.7;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
+
+header{display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;
+  padding:26px 0 14px;border-bottom:2px solid var(--ink);margin-bottom:26px}
+h1{margin:0;font-size:23px;font-weight:700;letter-spacing:.16em}
+.eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--ink2)}
+.back{font-family:var(--mono);font-size:11px;letter-spacing:.1em;color:var(--ink2);text-decoration:none;border-bottom:1px solid var(--rule)}
+.back:hover{color:var(--mark);border-color:var(--mark)}
+.who{margin-left:auto;display:flex;align-items:center;gap:12px;
+  font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--ink2)}
+
+section.pane{background:var(--card);border:1px solid var(--rule);padding:20px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+@media(max-width:880px){.cols{grid-template-columns:1fr}}
+.pane-head{display:flex;align-items:center;gap:10px;
+  font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;
+  color:var(--ink2);border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:18px}
+.pane-head .n{display:inline-grid;place-items:center;width:19px;height:19px;
+  background:var(--ink);color:var(--card);font-size:10px;font-weight:600}
+
+label.fld{display:block;margin-bottom:16px}
+label.fld > span{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.18em;
+  text-transform:uppercase;color:var(--ink2);margin-bottom:6px}
+input[type=text],input[type=date],textarea{width:100%;padding:9px 11px;
+  border:1px solid var(--rule);background:#fff;font-family:var(--jp);font-size:15px;
+  color:var(--ink);border-radius:0}
+input[type=date]{font-family:var(--mono);letter-spacing:.04em}
+textarea{min-height:96px;resize:vertical;line-height:1.75}
+input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-offset:-1px}
+
+.plotmap{display:grid;grid-template-columns:1fr;gap:0;margin-bottom:6px}
+.field{border:1px solid var(--rule);background:#fff;padding:9px;border-bottom:0}
+.field:last-of-type{border-bottom:1px solid var(--rule)}
+.field h3{margin:0 0 8px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
+  color:var(--ink2);font-weight:500;display:flex;justify-content:space-between}
+.field h3 em{font-style:normal;color:var(--ink3);letter-spacing:.02em;font-size:9.5px}
+.rows{display:grid;gap:3px}
+.row{display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;
+  border:1px solid transparent;background:#FBFBF7;user-select:none;
+  transition:background .12s,color .12s}
+.row:hover{background:var(--mark-soft)}
+.row .bar{width:4px;height:15px;background:var(--rule)}
+.row .une{font-family:var(--jp);font-size:13px;letter-spacing:.02em;font-weight:600}
+.row .rid{font-family:var(--mono);font-size:9.5px;color:var(--ink3);letter-spacing:.08em}
+.row.on .rid{color:rgba(255,255,255,.72)}
+.row.on{background:var(--mark);color:#fff}
+.row.on .bar{background:#fff}
+.row .crop{margin-left:auto;font-family:var(--jp);font-size:11.5px;
+  color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.row.on .crop{color:rgba(255,255,255,.88)}
+.compass{display:flex;justify-content:center;font-family:var(--mono);font-size:9.5px;
+  letter-spacing:.4em;color:var(--ink2);padding:4px 0;
+  border-left:1px solid var(--rule);border-right:1px solid var(--rule);background:var(--paper)}
+.compass.n{border-top:1px solid var(--rule)}
+.compass.s{border-bottom:1px solid var(--rule)}
+
+.tags{display:flex;flex-wrap:wrap;gap:6px}
+.tag{padding:5px 11px;border:1px solid var(--rule);background:#fff;cursor:pointer;
+  font-size:13px;user-select:none;transition:background .12s}
+.tag:hover{background:var(--mark-soft)}
+.tag.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+
+.drop{border:2px dashed var(--rule);background:#FBFBF7;padding:30px 18px;text-align:center;
+  cursor:pointer;transition:background .12s,border-color .12s}
+.drop:hover,.drop.over{background:var(--mark-soft);border-color:var(--mark)}
+.drop .big{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--ink2)}
+.drop .sub{font-size:12px;color:var(--ink3);margin-top:6px}
+
+.shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:16px}
+.shot{border:1px solid var(--rule);background:#fff;position:relative}
+.shot img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
+.shot .meta{padding:5px 6px;font-family:var(--mono);font-size:9.5px;color:var(--ink3);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.shot select{width:100%;font-size:10px;padding:2px 4px;border:0;border-top:1px solid var(--rule);
+  font-family:var(--mono);background:#fff}
+.shot .kill{position:absolute;top:3px;right:3px;width:20px;height:20px;border:0;cursor:pointer;
+  background:rgba(35,40,33,.78);color:#fff;font-size:13px;line-height:1;padding:0}
+.shot.bad{border-color:var(--mark)}
+.shot.bad .ph{aspect-ratio:4/3;display:grid;place-items:center;background:var(--mark-soft);
+  color:var(--mark);font-family:var(--mono);font-size:10px;text-align:center;padding:6px}
+
+.actions{display:flex;gap:10px;align-items:center;margin-top:22px;padding-top:18px;
+  border-top:1px solid var(--rule);flex-wrap:wrap}
+button.go{padding:12px 26px;border:0;background:var(--mark);color:#fff;cursor:pointer;
+  font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase}
+button.go:hover{background:#A9381F}
+button.go:disabled{background:var(--ink3);cursor:not-allowed}
+button.ghost{padding:10px 16px;border:1px solid var(--rule);background:transparent;
+  color:var(--ink2);cursor:pointer;font-family:var(--mono);font-size:11px;letter-spacing:.12em}
+button.ghost:hover{border-color:var(--ink);color:var(--ink)}
+.msg{font-size:12.5px;color:var(--ink2)}
+.msg.err{color:var(--mark)}
+.msg.ok{color:var(--ok)}
+
+.listhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  margin:44px 0 0;padding-bottom:10px;border-bottom:2px solid var(--ink)}
+.listhead h2{margin:0;font-size:15px;letter-spacing:.14em;font-weight:700}
+.listhead input[type=month]{width:auto;padding:6px 9px;border:1px solid var(--rule);
+  background:#fff;font-family:var(--mono);font-size:13px}
+.count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink2);letter-spacing:.1em}
+
+.entry{border-bottom:1px solid var(--rule);padding:18px 0}
+.entry-top{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+.entry .d{font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--mark);font-weight:600}
+.entry .t{font-weight:700;font-size:16px}
+.entry .beds{font-size:12px;color:var(--ink2)}
+.entry .b{margin:8px 0 0;white-space:pre-wrap;color:var(--ink2);font-size:14px}
+.entry .nx{margin-top:9px;padding:7px 11px;background:var(--mark-soft);
+  border-left:3px solid var(--mark);font-size:13.5px}
+.entry .nx b{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--mark);display:block}
+.entry .strip{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.entry .strip img{width:96px;height:72px;object-fit:cover;border:1px solid var(--rule);
+  cursor:zoom-in;background:#fff}
+.entry .drv{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-top:8px}
+.entry .tg{display:inline-block;padding:2px 8px;background:var(--ink);color:var(--card);
+  font-size:11px;margin-right:5px}
+.entry .del{float:right;border:0;background:none;color:var(--ink3);cursor:pointer;
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em}
+.entry .del:hover{color:var(--mark)}
+.empty{padding:40px 0;text-align:center;color:var(--ink3);font-size:14px}
+
+.gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center}
+.gate h2{margin:0 0 8px;font-size:18px;letter-spacing:.08em}
+.gate p{margin:0 0 20px;color:var(--ink2);font-size:14px}
+.notice{background:var(--mark-soft);border-left:4px solid var(--mark);padding:16px 18px;
+  margin-bottom:26px;font-size:14px}
+.notice code{font-family:var(--mono);font-size:12.5px;background:#fff;padding:1px 5px;border:1px solid var(--rule)}
+
+.lb{position:fixed;inset:0;background:rgba(35,40,33,.9);display:none;place-items:center;
+  z-index:50;padding:24px;cursor:zoom-out}
+.lb.on{display:grid}
+.lb img{max-width:100%;max-height:88vh}
+.lb .cap{position:absolute;bottom:16px;left:0;right:0;text-align:center;
+  color:#DDE0D6;font-family:var(--mono);font-size:11px}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <div class="eyebrow">Field Record</div>
+    <h1>農園日誌</h1>
+  </div>
+  <a class="back" href="./index.html">← 農園管理へ</a>
+  <div class="who" id="who"></div>
+</header>
+
+<div class="notice" id="notice" style="display:none"></div>
+
+<div class="gate" id="gate" style="display:none">
+  <h2>ログインしてください</h2>
+  <p>農園管理アプリと同じGoogleアカウントでログインします。</p>
+  <button class="go" id="login">Google でログイン</button>
+</div>
+
+<div id="app" style="display:none">
+<div class="cols">
+
+  <section class="pane">
+    <div class="pane-head"><span class="n">1</span>記入</div>
+
+    <label class="fld"><span>作業日</span><input type="date" id="f-date"></label>
+
+    <label class="fld" style="margin-bottom:10px"><span>畝（複数選べます）</span></label>
+    <div class="plotmap" id="plotmap"></div>
+    <div style="font-size:11.5px;color:var(--ink3);margin:6px 0 18px" id="crophint">選んだ畝が日誌に紐づきます</div>
+
+    <label class="fld"><span>作業内容</span></label>
+    <div class="tags" id="tags" style="margin-bottom:18px"></div>
+
+    <label class="fld"><span>見出し</span>
+      <input type="text" id="f-title" placeholder="サトイモ2回目追肥" autocomplete="off"></label>
+
+    <label class="fld"><span>本文（任意）</span>
+      <textarea id="f-body" placeholder="書きたい日だけで大丈夫です"></textarea></label>
+
+    <label class="fld"><span>次回やること</span>
+      <input type="text" id="f-next" placeholder="敷き藁をどけてから土寄せ" autocomplete="off"></label>
+
+    <label class="fld" style="margin-bottom:0"><span>原本フォルダ（Googleドライブ）</span>
+      <input type="text" id="f-drive" placeholder="農園日誌/2026/08/31" autocomplete="off"></label>
+  </section>
+
+  <section class="pane">
+    <div class="pane-head"><span class="n">2</span>写真</div>
+    <div class="drop" id="drop">
+      <div class="big">写真をここにドロップ</div>
+      <div class="sub">クリックして選ぶこともできます／長辺400pxに縮小して保存します</div>
+    </div>
+    <input type="file" id="file" accept="image/*" multiple hidden>
+    <div class="shots" id="shots"></div>
+    <div class="actions">
+      <button class="go" id="save">保存する</button>
+      <button class="ghost" id="clear">入力を消す</button>
+      <span class="msg" id="msg"></span>
+    </div>
+  </section>
+
+</div>
+
+<div class="listhead">
+  <h2>記録</h2>
+  <input type="month" id="month">
+  <span class="count" id="count"></span>
+</div>
+<div id="list"></div>
+</div>
+
+</div>
+
+<div class="lb" id="lb"><img alt=""><div class="cap"></div></div>
+
+<script>
+/* ==========================================================
+   設定
+   firebaseConfig は farm-management-complete.html の 42-50行目と
+   同じものを貼ってください（apiKey も含めて丸ごと）
+   ========================================================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyCwEY_jjdzhTHjhrA_CGHs1isx1VHe6YFg",
+  authDomain: "farm-management-29ad7.firebaseapp.com",
+  projectId: "farm-management-29ad7",
+  storageBucket: "farm-management-29ad7.firebasestorage.app",
+  messagingSenderId: "255926610543",
+  appId: "1:255926610543:web:b77fa8f857c3d1f6683b9a",
+  databaseURL: "https://farm-management-29ad7-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+const CONFIG = {
+  // users/{uid}/ の下に作るノード名。farmData とは兄弟なので
+  // 農園アプリ側の .set() で消えることはありません
+  journalNode: "journal",
+  photoNode:   "photos",
+  farmDataNode:"farmData",
+
+  fields: [
+    { id:"F1", label:"北側（第1圃場）", short:"北側", rows:6, reverse:true },
+    { id:"F2", label:"南側（第2圃場）", short:"南側", rows:6, reverse:true }
+  ],
+
+  tags: ["播種","定植","追肥","潅水","防除","収穫","除草","土寄せ","誘引","整枝",
+         "敷き藁","マルチ","耕耘","片付け","見回り"],
+
+  thumbEdge: 400,
+  thumbQuality: 0.6,
+
+  // farmData の中の作付けレコードで、畝IDと作物名が入っている
+  // キー名の候補。実際の名前が違えばここに足してください
+  keyRow:  ["row","bed","rowId","rowID","une","plot"],
+  keyCrop: ["crop","cropName","name","variety","item"],
+  keyFrom: ["startDate","start_date","plantedAt","plantDate","sowDate","from_date","begin"],
+  keyTo:   ["endDate","end_date","harvestEnd","harvestDate","to_date","finish"]
+};
+/* ========================================================== */
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const pad = n => String(n).padStart(2,"0");
+const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null };
+let auth, db;
+
+/* ---------- Firebase 起動 ---------- */
+function boot(){
+  if(firebaseConfig.apiKey === "PASTE_API_KEY_HERE"){
+    $("#notice").style.display = "block";
+    $("#notice").innerHTML =
+      `<b>apiKey が未設定です。</b><br>このファイルの <code>firebaseConfig</code> に、
+       <code>farm-management-complete.html</code> の42-50行目と同じ内容を貼ってください。`;
+    return;
+  }
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db   = firebase.database();
+
+  auth.onAuthStateChanged(u=>{
+    if(u){
+      state.uid = u.uid;
+      $("#gate").style.display = "none";
+      $("#app").style.display  = "block";
+      $("#who").innerHTML =
+        `<span>${esc(u.email || u.displayName || "")}</span>
+         <button class="ghost" id="logout">ログアウト</button>`;
+      $("#logout").addEventListener("click", ()=> auth.signOut());
+      loadCrops();
+      loadMonth($("#month").value);
+    }else{
+      state.uid = null;
+      $("#gate").style.display = "block";
+      $("#app").style.display  = "none";
+      $("#who").innerHTML = "";
+    }
+  });
+}
+
+const base = () => `users/${state.uid}`;
+
+/* ---------- 畝マップ ---------- */
+function uneNo(f, n){ return f.reverse ? (f.rows - n + 1) : n; }
+function fieldOf(id){ return CONFIG.fields.find(f=>f.id === id.split("R")[0]); }
+function bedLabel(id){
+  const f = fieldOf(id); if(!f) return id;
+  return `${f.label} 第${uneNo(f, +id.split("R")[1])}畝`;
+}
+function bedShort(id){
+  const f = fieldOf(id); if(!f) return id;
+  return `${f.short} 第${uneNo(f, +id.split("R")[1])}畝`;
+}
+
+function buildPlotmap(){
+  const box = $("#plotmap");
+  box.innerHTML = `<div class="compass n">北</div>`;
+  CONFIG.fields.forEach(f=>{
+    const d = document.createElement("div");
+    d.className = "field";
+    d.innerHTML = `<h3>${f.label}<em>${f.rows}畝</em></h3><div class="rows"></div>`;
+    const rows = d.querySelector(".rows");
+    for(let i=1;i<=f.rows;i++){
+      const id = `${f.id}R${i}`;
+      const r = document.createElement("div");
+      r.className = "row"; r.dataset.bed = id;
+      r.innerHTML = `<span class="bar"></span>
+        <span class="une">第${uneNo(f,i)}畝</span>
+        <span class="rid">${id}</span>
+        <span class="crop" data-crop="${id}"></span>`;
+      r.addEventListener("click", ()=>{
+        if(state.beds.has(id)){ state.beds.delete(id); r.classList.remove("on"); }
+        else { state.beds.add(id); r.classList.add("on"); }
+        refreshShotBedOptions();
+      });
+      rows.appendChild(r);
+    }
+    box.appendChild(d);
+  });
+  box.insertAdjacentHTML("beforeend", `<div class="compass s">南</div>`);
+}
+
+function buildTags(){
+  const box = $("#tags"); box.innerHTML = "";
+  CONFIG.tags.forEach(t=>{
+    const b = document.createElement("div");
+    b.className = "tag"; b.textContent = t;
+    b.addEventListener("click", ()=>{
+      if(state.tags.has(t)){ state.tags.delete(t); b.classList.remove("on"); }
+      else { state.tags.add(t); b.classList.add("on"); }
+    });
+    box.appendChild(b);
+  });
+}
+
+/* ---------- 農園データから作物名を引く ---------- */
+const pick = (o, keys) => { for(const k of keys) if(o[k] != null && o[k] !== "") return o[k]; return null; };
+
+async function loadCrops(){
+  try{
+    const snap = await db.ref(`${base()}/${CONFIG.farmDataNode}`).once("value");
+    const fd = snap.val();
+    if(!fd){ $("#crophint").textContent = "選んだ畝が日誌に紐づきます"; return; }
+
+    let recs = [];
+    ["plantings","plans"].forEach(k=>{
+      const v = fd[k];
+      if(Array.isArray(v)) recs = recs.concat(v);
+      else if(v && typeof v === "object") recs = recs.concat(Object.values(v));
+    });
+    if(!recs.length){ $("#crophint").textContent = "作付けデータを読めませんでした（畝の選択は使えます）"; return; }
+
+    state.rawCrops = recs;
+    paintCrops();
+    $("#crophint").textContent = "選んだ畝が日誌に紐づきます（作物名は作業日時点の作付けです）";
+  }catch(e){
+    $("#crophint").textContent = "作付けデータを読めませんでした（畝の選択は使えます）";
+  }
+}
+
+function paintCrops(){
+  if(!state.rawCrops) return;
+  const today = $("#f-date").value || new Date().toISOString().slice(0,10);
+  const map = {};
+  state.rawCrops.forEach(p=>{
+    if(!p || typeof p !== "object") return;
+    const row  = pick(p, CONFIG.keyRow);
+    const crop = pick(p, CONFIG.keyCrop);
+    if(!row || !crop) return;
+    const s = pick(p, CONFIG.keyFrom), e = pick(p, CONFIG.keyTo);
+    // 日付が両方読めるときだけ期間で絞る
+    if(typeof s === "string" && typeof e === "string" && s.length >= 7 && e.length >= 7){
+      if(!(s.slice(0,10) <= today && today <= e.slice(0,10))) return;
+    }
+    (map[row] = map[row] || []).push(String(crop));
+  });
+  state.crops = map;
+  $$("[data-crop]").forEach(el=>{
+    const list = map[el.dataset.crop];
+    el.textContent = list ? Array.from(new Set(list)).join("・") : "";
+  });
+}
+
+/* ---------- EXIF ---------- */
+function readExifDate(file){
+  return new Promise(res=>{
+    const r = new FileReader();
+    r.onerror = ()=>res(null);
+    r.onload = e=>{
+      try{
+        const v = new DataView(e.target.result);
+        if(v.getUint16(0) !== 0xFFD8) return res(null);
+        let off = 2;
+        while(off < v.byteLength - 4){
+          const marker = v.getUint16(off);
+          if((marker & 0xFF00) !== 0xFF00) break;
+          const len = v.getUint16(off+2);
+          if(marker === 0xFFE1){
+            if(v.getUint32(off+4) !== 0x45786966) return res(null);
+            const tiff = off + 10;
+            const le = v.getUint16(tiff) === 0x4949;
+            const ifd0 = tiff + v.getUint32(tiff+4, le);
+            const n0 = v.getUint16(ifd0, le);
+            let sub = null;
+            for(let i=0;i<n0;i++){
+              const p = ifd0 + 2 + i*12;
+              if(v.getUint16(p, le) === 0x8769) sub = tiff + v.getUint32(p+8, le);
+            }
+            if(sub === null) return res(null);
+            const n1 = v.getUint16(sub, le);
+            for(let i=0;i<n1;i++){
+              const p = sub + 2 + i*12;
+              const tag = v.getUint16(p, le);
+              if(tag === 0x9003 || tag === 0x9004){
+                const cnt = v.getUint32(p+4, le);
+                const vo  = tiff + v.getUint32(p+8, le);
+                let s = "";
+                for(let k=0;k<cnt-1;k++) s += String.fromCharCode(v.getUint8(vo+k));
+                return res(s.trim());
+              }
+            }
+            return res(null);
+          }
+          off += 2 + len;
+        }
+        res(null);
+      }catch(_){ res(null); }
+    };
+    r.readAsArrayBuffer(file.slice(0, 160*1024));
+  });
+}
+
+async function makeThumb(file){
+  let bmp;
+  try{ bmp = await createImageBitmap(file, {imageOrientation:"from-image"}); }
+  catch(_){ bmp = await createImageBitmap(file); }
+  const s = Math.min(1, CONFIG.thumbEdge / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width*s));
+  const h = Math.max(1, Math.round(bmp.height*s));
+  const c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  c.getContext("2d").drawImage(bmp, 0, 0, w, h);
+  if(bmp.close) bmp.close();
+  return c.toDataURL("image/jpeg", CONFIG.thumbQuality);
+}
+
+async function ingest(files){
+  const list = Array.from(files).filter(f=>f.type.startsWith("image/") || /\.hei[cf]$/i.test(f.name));
+  if(!list.length) return;
+  let earliest = null;
+  for(const f of list){
+    const rec = { file:f.name, row:"", thumb:null, bad:false, taken:null };
+    const ex = await readExifDate(f);
+    if(ex && /^\d{4}:\d{2}:\d{2}/.test(ex)){
+      rec.taken = ex;
+      const d = ex.slice(0,10).replace(/:/g,"-");
+      if(!earliest || d < earliest) earliest = d;
+    }
+    try{ rec.thumb = await makeThumb(f); }catch(_){ rec.bad = true; }
+    state.shots.push(rec);
+    renderShots();
+  }
+  if(earliest && !$("#f-date").dataset.touched){ $("#f-date").value = earliest; paintCrops(); }
+  if(earliest && !$("#f-drive").value){
+    const [y,m,d] = earliest.split("-");
+    $("#f-drive").value = `農園日誌/${y}/${m}/${d}`;
+  }
+}
+
+function renderShots(){
+  const box = $("#shots"); box.innerHTML = "";
+  state.shots.forEach((s,i)=>{
+    const d = document.createElement("div");
+    d.className = "shot" + (s.bad ? " bad" : "");
+    const opts = ['<option value="">畝なし</option>']
+      .concat(Array.from(state.beds).sort().map(b=>
+        `<option value="${b}"${s.row===b?" selected":""}>${esc(bedShort(b))}</option>`)).join("");
+    d.innerHTML = s.bad
+      ? `<div class="ph">この形式は<br>ブラウザで開けません<br>JPEGに変換してください</div>
+         <div class="meta" title="${esc(s.file)}">${esc(s.file)}</div>
+         <button class="kill" aria-label="削除">×</button>`
+      : `<img src="${s.thumb}" alt="${esc(s.file)}">
+         <div class="meta" title="${esc(s.file)}">${esc(s.file)}</div>
+         <select aria-label="この写真の畝">${opts}</select>
+         <button class="kill" aria-label="削除">×</button>`;
+    d.querySelector(".kill").addEventListener("click", ()=>{ state.shots.splice(i,1); renderShots(); });
+    const sel = d.querySelector("select");
+    if(sel) sel.addEventListener("change", e=> state.shots[i].row = e.target.value);
+    box.appendChild(d);
+  });
+}
+function refreshShotBedOptions(){ if(state.shots.length) renderShots(); }
+
+/* ---------- 保存 ---------- */
+async function save(){
+  const msg = $("#msg");
+  const date = $("#f-date").value;
+  const title = $("#f-title").value.trim();
+  if(!date){ msg.className="msg err"; msg.textContent="作業日を入れてください"; return; }
+  if(!title && !$("#f-body").value.trim() && !state.shots.length){
+    msg.className="msg err"; msg.textContent="見出しか本文か写真のどれかを入れてください"; return;
+  }
+
+  const btn = $("#save"); btn.disabled = true;
+  msg.className = "msg"; msg.textContent = "保存しています…";
+
+  const ym = date.slice(0,7);
+  const id = `j_${date.replace(/-/g,"")}_${Math.random().toString(36).slice(2,6)}`;
+
+  const entry = {
+    date, title: title || "(見出しなし)",
+    body:  $("#f-body").value.trim(),
+    next:  $("#f-next").value.trim(),
+    drive: $("#f-drive").value.trim(),
+    rows:  Array.from(state.beds).sort(),
+    tags:  Array.from(state.tags),
+    saved: new Date().toISOString()
+  };
+
+  const photos = {};
+  state.shots.filter(s=>!s.bad).forEach((s,i)=>{
+    photos[`p${i+1}`] = { thumb:s.thumb, file:s.file, row:s.row||"", taken:s.taken||"" };
+  });
+
+  try{
+    await db.ref(`${base()}/${CONFIG.journalNode}/${ym}/${id}`).set(entry);
+    if(Object.keys(photos).length)
+      await db.ref(`${base()}/${CONFIG.photoNode}/${id}`).set(photos);
+    msg.className = "msg ok";
+    msg.textContent = `保存しました（写真 ${Object.keys(photos).length} 枚）`;
+    clearForm(false);
+    $("#month").value = ym;
+    loadMonth(ym);
+  }catch(e){
+    msg.className = "msg err";
+    msg.textContent = "保存できませんでした：" + e.message;
+  }finally{ btn.disabled = false; }
+}
+
+function clearForm(alsoDate=true){
+  if(alsoDate){ $("#f-date").value = ""; delete $("#f-date").dataset.touched; }
+  $("#f-title").value=""; $("#f-body").value=""; $("#f-next").value=""; $("#f-drive").value="";
+  state.beds.clear(); state.tags.clear(); state.shots=[];
+  $$(".row.on").forEach(e=>e.classList.remove("on"));
+  $$(".tag.on").forEach(e=>e.classList.remove("on"));
+  renderShots();
+}
+
+/* ---------- 一覧 ---------- */
+async function loadMonth(ym){
+  if(!state.uid) return;
+  const list = $("#list"), cnt = $("#count");
+  list.innerHTML = `<div class="empty">読み込んでいます…</div>`;
+  cnt.textContent = "";
+  let data;
+  try{ data = (await db.ref(`${base()}/${CONFIG.journalNode}/${ym}`).once("value")).val(); }
+  catch(e){ list.innerHTML = `<div class="empty">読み込めませんでした：${esc(e.message)}</div>`; return; }
+
+  if(!data){ list.innerHTML = `<div class="empty">${esc(ym)} の記録はまだありません</div>`; return; }
+
+  const items = Object.entries(data).map(([id,v])=>({id,...v}))
+    .sort((a,b)=> (b.date+b.id).localeCompare(a.date+a.id));
+  cnt.textContent = `${items.length} 件`;
+  list.innerHTML = "";
+
+  for(const it of items){
+    const el = document.createElement("div");
+    el.className = "entry";
+    const beds = (it.rows||[]).slice().sort().map(bedLabel).join("　");
+    const tags = (it.tags||[]).map(t=>`<span class="tg">${esc(t)}</span>`).join("");
+    el.innerHTML = `
+      <button class="del" data-id="${it.id}" data-ym="${ym}">削除</button>
+      <div class="entry-top">
+        <span class="d">${esc(it.date)}</span>
+        <span class="t">${esc(it.title||"")}</span>
+      </div>
+      ${beds?`<div class="beds">${esc(beds)}</div>`:""}
+      ${tags?`<div style="margin-top:7px">${tags}</div>`:""}
+      ${it.body?`<p class="b">${esc(it.body)}</p>`:""}
+      ${it.next?`<div class="nx"><b>次回やること</b>${esc(it.next)}</div>`:""}
+      <div class="strip"></div>
+      ${it.drive?`<div class="drv">原本 ${esc(it.drive)}</div>`:""}`;
+    el.querySelector(".del").addEventListener("click", async ev=>{
+      if(!confirm("この記録を削除します。よろしいですか。")) return;
+      const b = ev.currentTarget;
+      await db.ref(`${base()}/${CONFIG.journalNode}/${b.dataset.ym}/${b.dataset.id}`).remove();
+      await db.ref(`${base()}/${CONFIG.photoNode}/${b.dataset.id}`).remove();
+      loadMonth(b.dataset.ym);
+    });
+    list.appendChild(el);
+
+    db.ref(`${base()}/${CONFIG.photoNode}/${it.id}`).once("value").then(s=>{
+      const ps = s.val(); if(!ps) return;
+      const strip = el.querySelector(".strip");
+      Object.values(ps).forEach(p=>{
+        const im = document.createElement("img");
+        im.src = p.thumb; im.alt = p.file || "";
+        im.title = [p.file, p.row ? bedShort(p.row) : ""].filter(Boolean).join("  ");
+        im.addEventListener("click", ()=> lightbox(p));
+        strip.appendChild(im);
+      });
+    }).catch(()=>{});
+  }
+}
+
+function lightbox(p){
+  const lb = $("#lb");
+  lb.querySelector("img").src = p.thumb;
+  lb.querySelector(".cap").textContent =
+    [p.file, p.row ? bedLabel(p.row) : "", p.taken].filter(Boolean).join("   ")
+    + "   ／ 原本はGoogleドライブで";
+  lb.classList.add("on");
+}
+
+/* ---------- 配線 ---------- */
+buildPlotmap();
+buildTags();
+
+$("#f-date").addEventListener("input", e=>{ e.target.dataset.touched = "1"; paintCrops(); });
+
+const drop = $("#drop"), fileInput = $("#file");
+drop.addEventListener("click", ()=> fileInput.click());
+fileInput.addEventListener("change", e=>{ ingest(e.target.files); e.target.value=""; });
+["dragenter","dragover"].forEach(t=> drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(t=> drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e=> ingest(e.dataTransfer.files));
+
+$("#save").addEventListener("click", save);
+$("#clear").addEventListener("click", ()=>{ clearForm(); $("#msg").textContent=""; });
+$("#lb").addEventListener("click", ()=> $("#lb").classList.remove("on"));
+document.addEventListener("keydown", e=>{ if(e.key==="Escape") $("#lb").classList.remove("on"); });
+$("#login").addEventListener("click", ()=>{
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(e=>{
+    $("#notice").style.display = "block";
+    $("#notice").innerHTML = `<b>ログインできませんでした</b><br>${esc(e.message)}`;
+  });
+});
+
+const now = new Date();
+$("#month").value = `${now.getFullYear()}-${pad(now.getMonth()+1)}`;
+$("#month").addEventListener("change", e=> loadMonth(e.target.value));
+
+boot();
+</script>
+</body>
+</html>
