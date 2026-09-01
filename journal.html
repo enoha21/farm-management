@@ -60,8 +60,8 @@ textarea{min-height:96px;resize:vertical;line-height:1.75}
 input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-offset:-1px}
 
 .plotmap{display:grid;grid-template-columns:1fr;gap:0;margin-bottom:6px}
-.field{border:1px solid var(--rule);background:#fff;padding:9px;border-bottom:0}
-.field:last-of-type{border-bottom:1px solid var(--rule)}
+.field{border:1px solid var(--rule);background:#fff;padding:9px;margin-bottom:10px}
+.field:last-of-type{margin-bottom:0}
 .field h3{margin:0 0 8px;font-family:var(--mono);font-size:10px;letter-spacing:.2em;
   color:var(--ink2);font-weight:500;display:flex;justify-content:space-between}
 .field h3 em{font-style:normal;color:var(--ink3);letter-spacing:.02em;font-size:9.5px}
@@ -79,11 +79,6 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
 .row .crop{margin-left:auto;font-family:var(--jp);font-size:11.5px;
   color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
 .row.on .crop{color:rgba(255,255,255,.88)}
-.compass{display:flex;justify-content:center;font-family:var(--mono);font-size:9.5px;
-  letter-spacing:.4em;color:var(--ink2);padding:4px 0;
-  border-left:1px solid var(--rule);border-right:1px solid var(--rule);background:var(--paper)}
-.compass.n{border-top:1px solid var(--rule)}
-.compass.s{border-bottom:1px solid var(--rule)}
 
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{padding:5px 11px;border:1px solid var(--rule);background:#fff;cursor:pointer;
@@ -91,11 +86,17 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
 .tag:hover{background:var(--mark-soft)}
 .tag.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
 
-.drop{border:2px dashed var(--rule);background:#FBFBF7;padding:30px 18px;text-align:center;
-  cursor:pointer;transition:background .12s,border-color .12s}
-.drop:hover,.drop.over{background:var(--mark-soft);border-color:var(--mark)}
-.drop .big{font-family:var(--mono);font-size:12px;letter-spacing:.14em;color:var(--ink2)}
-.drop .sub{font-size:12px;color:var(--ink3);margin-top:6px}
+.picker{display:flex;gap:10px;flex-wrap:wrap}
+.pick,.shoot{flex:1;min-width:150px;padding:20px 16px;border:1px solid var(--rule);
+  background:#fff;cursor:pointer;font-family:var(--jp);font-size:16px;font-weight:600;
+  color:var(--ink);transition:background .12s,border-color .12s}
+.pick{background:var(--ink);color:var(--card);border-color:var(--ink)}
+.pick:hover{background:#000}
+.shoot:hover{background:var(--mark-soft);border-color:var(--mark)}
+.picknote{margin-top:12px;padding:12px;text-align:center;font-size:12px;color:var(--ink3);
+  border:1px dashed transparent;transition:background .12s,border-color .12s}
+.picknote.over{background:var(--mark-soft);border-color:var(--mark);color:var(--mark)}
+@media(max-width:520px){ .shoot{display:none} }
 
 .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:16px}
 .shot{border:1px solid var(--rule);background:#fff;position:relative}
@@ -217,11 +218,13 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 
   <section class="pane">
     <div class="pane-head"><span class="n">2</span>写真</div>
-    <div class="drop" id="drop">
-      <div class="big">写真をここにドロップ</div>
-      <div class="sub">クリックして選ぶこともできます／長辺400pxに縮小して保存します</div>
+    <div class="picker">
+      <button class="pick" id="pick">写真を選ぶ</button>
+      <button class="shoot" id="shoot">その場で撮る</button>
     </div>
+    <div class="picknote" id="drop">長辺400pxに縮小して保存します。まとめて選べます。<br>パソコンならこの枠に写真をドラッグしても取り込めます。</div>
     <input type="file" id="file" accept="image/*" multiple hidden>
+    <input type="file" id="cam" accept="image/*" capture="environment" hidden>
     <div class="shots" id="shots"></div>
     <div class="actions">
       <button class="go" id="save">保存する</button>
@@ -344,13 +347,17 @@ function bedShort(id){
 
 function buildPlotmap(){
   const box = $("#plotmap");
-  box.innerHTML = `<div class="compass n">北</div>`;
+  box.innerHTML = "";
   CONFIG.fields.forEach(f=>{
     const d = document.createElement("div");
     d.className = "field";
     d.innerHTML = `<h3>${f.label}<em>${f.rows}畝</em></h3><div class="rows"></div>`;
     const rows = d.querySelector(".rows");
-    for(let i=1;i<=f.rows;i++){
+    // 第1畝が上に来るように、表示用の畝番号の昇順で並べる
+    const order = [];
+    for(let i=1;i<=f.rows;i++) order.push(i);
+    order.sort((a,b)=> uneNo(f,a) - uneNo(f,b));
+    order.forEach(i=>{
       const id = `${f.id}R${i}`;
       const r = document.createElement("div");
       r.className = "row"; r.dataset.bed = id;
@@ -364,10 +371,9 @@ function buildPlotmap(){
         refreshShotBedOptions();
       });
       rows.appendChild(r);
-    }
+    });
     box.appendChild(d);
   });
-  box.insertAdjacentHTML("beforeend", `<div class="compass s">南</div>`);
 }
 
 function buildTags(){
@@ -668,9 +674,11 @@ buildTags();
 
 $("#f-date").addEventListener("input", e=>{ e.target.dataset.touched = "1"; paintCrops(); });
 
-const drop = $("#drop"), fileInput = $("#file");
-drop.addEventListener("click", ()=> fileInput.click());
+const drop = $("#drop"), fileInput = $("#file"), camInput = $("#cam");
+$("#pick").addEventListener("click", ()=> fileInput.click());
+$("#shoot").addEventListener("click", ()=> camInput.click());
 fileInput.addEventListener("change", e=>{ ingest(e.target.files); e.target.value=""; });
+camInput.addEventListener("change", e=>{ ingest(e.target.files); e.target.value=""; });
 ["dragenter","dragover"].forEach(t=> drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.add("over"); }));
 ["dragleave","drop"].forEach(t=> drop.addEventListener(t, e=>{ e.preventDefault(); drop.classList.remove("over"); }));
 drop.addEventListener("drop", e=> ingest(e.dataTransfer.files));
