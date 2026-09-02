@@ -80,6 +80,13 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
   color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
 .row.on .crop{color:rgba(255,255,255,.88)}
 
+.editing{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--mark-soft);border-left:4px solid var(--mark);
+  padding:10px 14px;margin-bottom:18px;font-size:13.5px;color:var(--mark);font-weight:600}
+.entry .edit{float:right;border:0;background:none;color:var(--ink3);cursor:pointer;
+  font-family:var(--mono);font-size:10px;letter-spacing:.1em;margin-right:14px}
+.entry .edit:hover{color:var(--ink)}
+.entry.active{background:var(--mark-soft);margin:0 -12px;padding-left:12px;padding-right:12px}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{padding:5px 11px;border:1px solid var(--rule);background:#fff;cursor:pointer;
   font-size:13px;user-select:none;transition:background .12s}
@@ -196,7 +203,12 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 <div class="cols">
 
   <section class="pane">
-    <div class="pane-head"><span class="n">1</span>記入</div>
+    <div class="pane-head"><span class="n">1</span><span id="pane1-label">記入</span></div>
+
+    <div class="editing" id="editing" style="display:none">
+      <span>この記録を編集しています</span>
+      <button class="ghost" id="cancel-edit">編集をやめる</button>
+    </div>
 
     <label class="fld"><span>作業日</span><input type="date" id="f-date"></label>
 
@@ -297,7 +309,7 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const pad = n => String(n).padStart(2,"0");
 const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null };
+const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null, editing:null };
 let auth, db;
 
 /* ---------- Firebase 起動 ---------- */
@@ -570,6 +582,53 @@ function renderShots(){
 }
 function refreshShotBedOptions(){ if(state.shots.length) renderShots(); }
 
+/* ---------- 編集 ---------- */
+async function startEdit(it, ym){
+  clearForm();
+  state.editing = { id: it.id, ym };
+
+  $("#f-date").value  = it.date || "";
+  $("#f-date").dataset.touched = "1";
+  $("#f-title").value = (it.title === "(見出しなし)") ? "" : (it.title || "");
+  $("#f-body").value  = it.body  || "";
+  $("#f-next").value  = it.next  || "";
+  $("#f-drive").value = it.drive || "";
+
+  (it.rows||[]).forEach(b=>{
+    state.beds.add(b);
+    const el = document.querySelector(`.row[data-bed="${b}"]`);
+    if(el) el.classList.add("on");
+  });
+  (it.tags||[]).forEach(t=>{
+    state.tags.add(t);
+    $$(".tag").forEach(el=>{ if(el.textContent === t) el.classList.add("on"); });
+  });
+  paintCrops();
+
+  // 既存の写真を読み込んで編集対象にする
+  try{
+    const ps = (await db.ref(`${base()}/${CONFIG.photoNode}/${it.id}`).once("value")).val();
+    if(ps) Object.values(ps).forEach(pp=>{
+      state.shots.push({ file:pp.file||"", row:pp.row||"", thumb:pp.thumb, bad:false, taken:pp.taken||"" });
+    });
+    renderShots();
+  }catch(_){}
+
+  $("#editing").style.display = "flex";
+  $("#pane1-label").textContent = "編集";
+  $("#save").textContent = "更新する";
+  $("#msg").textContent = "";
+  $$(".entry").forEach(e=>e.classList.remove("active"));
+  window.scrollTo({ top:0, behavior:"smooth" });
+}
+
+function cancelEdit(){
+  state.editing = null;
+  $("#editing").style.display = "none";
+  $("#pane1-label").textContent = "記入";
+  $("#save").textContent = "保存する";
+}
+
 /* ---------- 保存 ---------- */
 async function save(){
   const msg = $("#msg");
@@ -584,7 +643,8 @@ async function save(){
   msg.className = "msg"; msg.textContent = "保存しています…";
 
   const ym = date.slice(0,7);
-  const id = `j_${date.replace(/-/g,"")}_${Math.random().toString(36).slice(2,6)}`;
+  const ed = state.editing;
+  const id = ed ? ed.id : `j_${date.replace(/-/g,"")}_${Math.random().toString(36).slice(2,6)}`;
 
   const entry = {
     date, title: title || "(見出しなし)",
@@ -604,11 +664,19 @@ async function save(){
   });
 
   try{
+    // 編集で作業日の月が変わった場合は、古い月のノードから消してから書く
+    if(ed && ed.ym !== ym)
+      await db.ref(`${base()}/${CONFIG.journalNode}/${ed.ym}/${id}`).remove();
+
     await db.ref(`${base()}/${CONFIG.journalNode}/${ym}/${id}`).set(entry);
-    if(Object.keys(photos).length)
-      await db.ref(`${base()}/${CONFIG.photoNode}/${id}`).set(photos);
+    await db.ref(`${base()}/${CONFIG.photoNode}/${id}`)
+            .set(Object.keys(photos).length ? photos : null);
+
     msg.className = "msg ok";
-    msg.textContent = `保存しました（写真 ${Object.keys(photos).length} 枚）`;
+    msg.textContent = ed
+      ? `更新しました（写真 ${Object.keys(photos).length} 枚）`
+      : `保存しました（写真 ${Object.keys(photos).length} 枚）`;
+    cancelEdit();
     clearForm(false);
     $("#month").value = ym;
     loadMonth(ym);
@@ -654,6 +722,7 @@ async function loadMonth(ym){
     const tags = (it.tags||[]).map(t=>`<span class="tg">${esc(t)}</span>`).join("");
     el.innerHTML = `
       <button class="del" data-id="${it.id}" data-ym="${ym}">削除</button>
+      <button class="edit" data-id="${it.id}" data-ym="${ym}">編集</button>
       <div class="entry-top">
         <span class="d">${esc(it.date)}</span>
         <span class="t">${esc(it.title||"")}</span>
@@ -664,6 +733,7 @@ async function loadMonth(ym){
       ${it.next?`<div class="nx"><b>次回やること</b>${esc(it.next)}</div>`:""}
       <div class="strip"></div>
       ${it.drive?`<div class="drv">原本 ${esc(it.drive)}</div>`:""}`;
+    el.querySelector(".edit").addEventListener("click", ()=> startEdit(it, ym));
     el.querySelector(".del").addEventListener("click", async ev=>{
       if(!confirm("この記録を削除します。よろしいですか。")) return;
       const b = ev.currentTarget;
@@ -712,7 +782,8 @@ camInput.addEventListener("change", e=>{ ingest(e.target.files); e.target.value=
 drop.addEventListener("drop", e=> ingest(e.dataTransfer.files));
 
 $("#save").addEventListener("click", save);
-$("#clear").addEventListener("click", ()=>{ clearForm(); $("#msg").textContent=""; });
+$("#clear").addEventListener("click", ()=>{ cancelEdit(); clearForm(); $("#msg").textContent=""; });
+$("#cancel-edit").addEventListener("click", ()=>{ cancelEdit(); clearForm(); $("#msg").textContent=""; });
 $("#lb").addEventListener("click", ()=> $("#lb").classList.remove("on"));
 document.addEventListener("keydown", e=>{ if(e.key==="Escape") $("#lb").classList.remove("on"); });
 $("#login").addEventListener("click", ()=>{
