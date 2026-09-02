@@ -144,10 +144,6 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .entry .t{font-weight:700;font-size:16px}
 .entry .beds{font-size:12px;color:var(--ink2)}
 .entry .b{margin:8px 0 0;white-space:pre-wrap;color:var(--ink2);font-size:14px}
-.entry .nx{margin-top:9px;padding:7px 11px;background:var(--mark-soft);
-  border-left:3px solid var(--mark);font-size:13.5px}
-.entry .nx b{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;
-  text-transform:uppercase;color:var(--mark);display:block}
 .entry .strip{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
 .entry .strip img{width:96px;height:72px;object-fit:cover;border:1px solid var(--rule);
   cursor:zoom-in;background:#fff}
@@ -221,11 +217,8 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
     <label class="fld"><span>見出し</span>
       <input type="text" id="f-title" placeholder="サトイモ2回目追肥" autocomplete="off"></label>
 
-    <label class="fld"><span>本文（任意）</span>
+    <label class="fld" style="margin-bottom:0"><span>本文（任意）</span>
       <textarea id="f-body" placeholder="書きたい日だけで大丈夫です"></textarea></label>
-
-    <label class="fld" style="margin-bottom:0"><span>次回やること</span>
-      <input type="text" id="f-next" placeholder="敷き藁をどけてから土寄せ" autocomplete="off"></label>
   </section>
 
   <section class="pane">
@@ -583,7 +576,6 @@ async function startEdit(it, ym){
   $("#f-date").dataset.touched = "1";
   $("#f-title").value = (it.title === "(見出しなし)") ? "" : (it.title || "");
   $("#f-body").value  = it.body  || "";
-  $("#f-next").value  = it.next  || "";
 
   (it.rows||[]).forEach(b=>{
     state.beds.add(b);
@@ -640,7 +632,6 @@ async function save(){
   const entry = {
     date, title: title || "(見出しなし)",
     body:  $("#f-body").value.trim(),
-    next:  $("#f-next").value.trim(),
     rows:  Array.from(state.beds).sort(),
     crops: Array.from(state.beds).sort()
              .reduce((o,b)=>{ const c = cropsOn(b, date); if(c.length) o[b]=c.join("・"); return o; }, {}),
@@ -678,7 +669,7 @@ async function save(){
 
 function clearForm(alsoDate=true){
   if(alsoDate){ $("#f-date").value = ""; delete $("#f-date").dataset.touched; }
-  $("#f-title").value=""; $("#f-body").value=""; $("#f-next").value="";
+  $("#f-title").value=""; $("#f-body").value="";
   state.beds.clear(); state.tags.clear(); state.shots=[];
   $$(".row.on").forEach(e=>e.classList.remove("on"));
   $$(".tag.on").forEach(e=>e.classList.remove("on"));
@@ -720,7 +711,6 @@ async function loadMonth(ym){
       ${beds?`<div class="beds">${esc(beds)}</div>`:""}
       ${tags?`<div style="margin-top:7px">${tags}</div>`:""}
       ${it.body?`<p class="b">${esc(it.body)}</p>`:""}
-      ${it.next?`<div class="nx"><b>次回やること</b>${esc(it.next)}</div>`:""}
       <div class="strip"></div>`;
     el.querySelector(".edit").addEventListener("click", ()=> startEdit(it, ym));
     el.querySelector(".del").addEventListener("click", async ev=>{
