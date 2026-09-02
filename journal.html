@@ -181,6 +181,10 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 </header>
 
 <div class="notice" id="notice" style="display:none"></div>
+<div id="debug" style="display:none;background:#fff;border:1px solid var(--rule);padding:16px;margin-bottom:26px;overflow:auto">
+  <div style="font-family:var(--mono);font-size:10px;letter-spacing:.2em;color:var(--ink2);margin-bottom:10px">FARMDATA 診断</div>
+  <pre id="debug-body" style="font-family:var(--mono);font-size:11px;line-height:1.6;margin:0;white-space:pre-wrap;word-break:break-all"></pre>
+</div>
 
 <div class="gate" id="gate" style="display:none">
   <h2>ログインしてください</h2>
@@ -397,6 +401,26 @@ async function loadCrops(){
     const snap = await db.ref(`${base()}/${CONFIG.farmDataNode}`).once("value");
     const fd = snap.val();
     if(!fd){ $("#crophint").textContent = "選んだ畝が日誌に紐づきます"; return; }
+
+    if(new URLSearchParams(location.search).get("debug")){
+      const out = [];
+      out.push("farmData の直下キー: " + Object.keys(fd).join(", "));
+      Object.keys(fd).forEach(k=>{
+        const v = fd[k];
+        if(Array.isArray(v)){
+          out.push(`\n[${k}] 配列 ${v.length}件`);
+          if(v.length) out.push("  1件目: " + JSON.stringify(v[0]));
+        }else if(v && typeof v === "object"){
+          const ks = Object.keys(v);
+          out.push(`\n[${k}] オブジェクト ${ks.length}件  キー: ${ks.slice(0,5).join(", ")}${ks.length>5?" …":""}`);
+          if(ks.length) out.push("  1件目: " + JSON.stringify(v[ks[0]]));
+        }else{
+          out.push(`\n[${k}] = ${JSON.stringify(v)}`);
+        }
+      });
+      $("#debug").style.display = "block";
+      $("#debug-body").textContent = out.join("\n");
+    }
 
     let recs = [];
     ["plantings","plans"].forEach(k=>{
