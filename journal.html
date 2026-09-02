@@ -285,12 +285,10 @@ const CONFIG = {
   thumbEdge: 400,
   thumbQuality: 0.6,
 
-  // farmData の中の作付けレコードで、畝IDと作物名が入っている
-  // キー名の候補。実際の名前が違えばここに足してください
-  keyRow:  ["row","bed","rowId","rowID","une","plot"],
-  keyCrop: ["crop","cropName","name","variety","item"],
-  keyFrom: ["startDate","start_date","plantedAt","plantDate","sowDate","from_date","begin"],
-  keyTo:   ["endDate","end_date","harvestEnd","harvestDate","to_date","finish"]
+  // farmData の実構造（2026-09 時点で確認済み）
+  //   plantings: ridgeId "F1R5" / cropName / plantDate / harvestDate / from,to は畝内位置(0-100)
+  //   plans:     ridgeId / cropName / startMonth / endMonth  ← 将来の予定なので作物表示には使わない
+  showPlans: false
 };
 /* ========================================================== */
 
@@ -403,8 +401,7 @@ async function loadCrops(){
     if(!fd){ $("#crophint").textContent = "選んだ畝が日誌に紐づきます"; return; }
 
     if(new URLSearchParams(location.search).get("debug")){
-      const out = [];
-      out.push("farmData の直下キー: " + Object.keys(fd).join(", "));
+      const out = ["farmData の直下キー: " + Object.keys(fd).join(", ")];
       Object.keys(fd).forEach(k=>{
         const v = fd[k];
         if(Array.isArray(v)){
@@ -414,51 +411,53 @@ async function loadCrops(){
           const ks = Object.keys(v);
           out.push(`\n[${k}] オブジェクト ${ks.length}件  キー: ${ks.slice(0,5).join(", ")}${ks.length>5?" …":""}`);
           if(ks.length) out.push("  1件目: " + JSON.stringify(v[ks[0]]));
-        }else{
-          out.push(`\n[${k}] = ${JSON.stringify(v)}`);
-        }
+        }else out.push(`\n[${k}] = ${JSON.stringify(v)}`);
       });
       $("#debug").style.display = "block";
       $("#debug-body").textContent = out.join("\n");
     }
 
-    let recs = [];
-    ["plantings","plans"].forEach(k=>{
-      const v = fd[k];
-      if(Array.isArray(v)) recs = recs.concat(v);
-      else if(v && typeof v === "object") recs = recs.concat(Object.values(v));
-    });
-    if(!recs.length){ $("#crophint").textContent = "作付けデータを読めませんでした（畝の選択は使えます）"; return; }
+    const toArr = v => Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v) : []);
+    state.rawCrops = toArr(fd.plantings);
+    state.rawPlans = toArr(fd.plans);
 
-    state.rawCrops = recs;
+    if(!state.rawCrops.length){
+      $("#crophint").textContent = "作付けデータを読めませんでした（畝の選択は使えます）";
+      return;
+    }
     paintCrops();
-    $("#crophint").textContent = "選んだ畝が日誌に紐づきます（作物名は作業日時点の作付けです）";
+    $("#crophint").textContent = "作業日を入れると、その日に植わっている作物が畝の右に出ます";
   }catch(e){
     $("#crophint").textContent = "作付けデータを読めませんでした（畝の選択は使えます）";
   }
 }
 
+// 指定日にその畝で栽培中の作付けを返す（畝内の位置順）
+function cropsOn(ridgeId, day){
+  if(!state.rawCrops) return [];
+  return state.rawCrops
+    .filter(p=>{
+      if(!p || p.ridgeId !== ridgeId || !p.cropName) return false;
+      const s = (p.plantDate   || "").slice(0,10);
+      const e = (p.harvestDate || "").slice(0,10);
+      if(!s && !e) return false;
+      if(s && day < s) return false;   // まだ植えていない
+      if(e && day > e) return false;   // 収穫済み
+      return true;
+    })
+    .sort((a,b)=> (a.from ?? 0) - (b.from ?? 0))
+    .map(p=> p.cropName);
+}
+
 function paintCrops(){
-  if(!state.rawCrops) return;
-  const today = $("#f-date").value || new Date().toISOString().slice(0,10);
+  const day = $("#f-date").value || new Date().toLocaleDateString("sv-SE");
   const map = {};
-  state.rawCrops.forEach(p=>{
-    if(!p || typeof p !== "object") return;
-    const row  = pick(p, CONFIG.keyRow);
-    const crop = pick(p, CONFIG.keyCrop);
-    if(!row || !crop) return;
-    const s = pick(p, CONFIG.keyFrom), e = pick(p, CONFIG.keyTo);
-    // 日付が両方読めるときだけ期間で絞る
-    if(typeof s === "string" && typeof e === "string" && s.length >= 7 && e.length >= 7){
-      if(!(s.slice(0,10) <= today && today <= e.slice(0,10))) return;
-    }
-    (map[row] = map[row] || []).push(String(crop));
+  $$("[data-crop]").forEach(el=>{
+    const list = cropsOn(el.dataset.crop, day);
+    if(list.length) map[el.dataset.crop] = list;
+    el.textContent = list.join("・");
   });
   state.crops = map;
-  $$("[data-crop]").forEach(el=>{
-    const list = map[el.dataset.crop];
-    el.textContent = list ? Array.from(new Set(list)).join("・") : "";
-  });
 }
 
 /* ---------- EXIF ---------- */
@@ -593,6 +592,8 @@ async function save(){
     next:  $("#f-next").value.trim(),
     drive: $("#f-drive").value.trim(),
     rows:  Array.from(state.beds).sort(),
+    crops: Array.from(state.beds).sort()
+             .reduce((o,b)=>{ const c = cropsOn(b, date); if(c.length) o[b]=c.join("・"); return o; }, {}),
     tags:  Array.from(state.tags),
     saved: new Date().toISOString()
   };
@@ -646,7 +647,10 @@ async function loadMonth(ym){
   for(const it of items){
     const el = document.createElement("div");
     el.className = "entry";
-    const beds = (it.rows||[]).slice().sort().map(bedLabel).join("　");
+    const beds = (it.rows||[]).slice().sort().map(b=>{
+      const c = it.crops && it.crops[b];
+      return bedLabel(b) + (c ? `：${c}` : "");
+    }).join("　／　");
     const tags = (it.tags||[]).map(t=>`<span class="tg">${esc(t)}</span>`).join("");
     el.innerHTML = `
       <button class="del" data-id="${it.id}" data-ym="${ym}">削除</button>
