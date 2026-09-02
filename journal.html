@@ -151,7 +151,6 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .entry .strip{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
 .entry .strip img{width:96px;height:72px;object-fit:cover;border:1px solid var(--rule);
   cursor:zoom-in;background:#fff}
-.entry .drv{font-family:var(--mono);font-size:10.5px;color:var(--ink3);margin-top:8px}
 .entry .tg{display:inline-block;padding:2px 8px;background:var(--ink);color:var(--card);
   font-size:11px;margin-right:5px}
 .entry .del{float:right;border:0;background:none;color:var(--ink3);cursor:pointer;
@@ -225,11 +224,8 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
     <label class="fld"><span>本文（任意）</span>
       <textarea id="f-body" placeholder="書きたい日だけで大丈夫です"></textarea></label>
 
-    <label class="fld"><span>次回やること</span>
+    <label class="fld" style="margin-bottom:0"><span>次回やること</span>
       <input type="text" id="f-next" placeholder="敷き藁をどけてから土寄せ" autocomplete="off"></label>
-
-    <label class="fld" style="margin-bottom:0"><span>原本フォルダ（Googleドライブ）</span>
-      <input type="text" id="f-drive" placeholder="農園日誌/2026/08/31" autocomplete="off"></label>
   </section>
 
   <section class="pane">
@@ -552,10 +548,6 @@ async function ingest(files){
     renderShots();
   }
   if(earliest && !$("#f-date").dataset.touched){ $("#f-date").value = earliest; paintCrops(); }
-  if(earliest && !$("#f-drive").value){
-    const [y,m,d] = earliest.split("-");
-    $("#f-drive").value = `農園日誌/${y}/${m}/${d}`;
-  }
 }
 
 function renderShots(){
@@ -592,7 +584,6 @@ async function startEdit(it, ym){
   $("#f-title").value = (it.title === "(見出しなし)") ? "" : (it.title || "");
   $("#f-body").value  = it.body  || "";
   $("#f-next").value  = it.next  || "";
-  $("#f-drive").value = it.drive || "";
 
   (it.rows||[]).forEach(b=>{
     state.beds.add(b);
@@ -650,7 +641,6 @@ async function save(){
     date, title: title || "(見出しなし)",
     body:  $("#f-body").value.trim(),
     next:  $("#f-next").value.trim(),
-    drive: $("#f-drive").value.trim(),
     rows:  Array.from(state.beds).sort(),
     crops: Array.from(state.beds).sort()
              .reduce((o,b)=>{ const c = cropsOn(b, date); if(c.length) o[b]=c.join("・"); return o; }, {}),
@@ -688,7 +678,7 @@ async function save(){
 
 function clearForm(alsoDate=true){
   if(alsoDate){ $("#f-date").value = ""; delete $("#f-date").dataset.touched; }
-  $("#f-title").value=""; $("#f-body").value=""; $("#f-next").value=""; $("#f-drive").value="";
+  $("#f-title").value=""; $("#f-body").value=""; $("#f-next").value="";
   state.beds.clear(); state.tags.clear(); state.shots=[];
   $$(".row.on").forEach(e=>e.classList.remove("on"));
   $$(".tag.on").forEach(e=>e.classList.remove("on"));
@@ -731,8 +721,7 @@ async function loadMonth(ym){
       ${tags?`<div style="margin-top:7px">${tags}</div>`:""}
       ${it.body?`<p class="b">${esc(it.body)}</p>`:""}
       ${it.next?`<div class="nx"><b>次回やること</b>${esc(it.next)}</div>`:""}
-      <div class="strip"></div>
-      ${it.drive?`<div class="drv">原本 ${esc(it.drive)}</div>`:""}`;
+      <div class="strip"></div>`;
     el.querySelector(".edit").addEventListener("click", ()=> startEdit(it, ym));
     el.querySelector(".del").addEventListener("click", async ev=>{
       if(!confirm("この記録を削除します。よろしいですか。")) return;
@@ -749,7 +738,8 @@ async function loadMonth(ym){
       Object.values(ps).forEach(p=>{
         const im = document.createElement("img");
         im.src = p.thumb; im.alt = p.file || "";
-        im.title = [p.file, p.row ? bedShort(p.row) : ""].filter(Boolean).join("  ");
+        im.title = [(p.taken||"").replace(/^(\d{4}):(\d{2}):(\d{2})/,"$1-$2-$3"),
+                    p.row ? bedShort(p.row) : "", p.file].filter(Boolean).join("  ");
         im.addEventListener("click", ()=> lightbox(p));
         strip.appendChild(im);
       });
@@ -760,9 +750,9 @@ async function loadMonth(ym){
 function lightbox(p){
   const lb = $("#lb");
   lb.querySelector("img").src = p.thumb;
+  const t = (p.taken||"").replace(/^(\d{4}):(\d{2}):(\d{2})/, "$1-$2-$3");
   lb.querySelector(".cap").textContent =
-    [p.file, p.row ? bedLabel(p.row) : "", p.taken].filter(Boolean).join("   ")
-    + "   ／ 原本はGoogleドライブで";
+    [t, p.row ? bedLabel(p.row) : "", p.file].filter(Boolean).join("   ");
   lb.classList.add("on");
 }
 
