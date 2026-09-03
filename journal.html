@@ -140,40 +140,37 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
   background:#fff;font-family:var(--mono);font-size:15px;color:var(--ink)}
 .count{margin-left:auto;font-family:var(--mono);font-size:13.5px;color:var(--ink2);letter-spacing:.08em}
 
-.entry{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--ink);
-  padding:16px 18px;margin-bottom:14px}
-.entry-head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;
-  padding-bottom:11px;border-bottom:1px solid var(--rule);margin-bottom:11px}
-.entry .d{font-family:var(--mono);font-size:15.5px;letter-spacing:.04em;
-  color:var(--mark);font-weight:600;white-space:nowrap}
-.entry .t{font-weight:700;font-size:20px;color:var(--ink);line-height:1.45}
+.entry{background:#fff;border:1px solid var(--rule);margin-bottom:18px;overflow:hidden}
+
+/* 見出し部：帯を敷いて本文と切り離す */
+.entry-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
+  background:#E2E5DA;border-bottom:2px solid var(--ink);padding:12px 16px}
+.entry .d{display:inline-block;background:var(--mark);color:#fff;
+  padding:4px 11px;font-family:var(--mono);font-size:14px;letter-spacing:.03em;
+  font-weight:600;white-space:nowrap}
+.entry .t{font-weight:700;font-size:21px;color:var(--ink);line-height:1.4;
+  letter-spacing:.02em}
 .entry .ops{margin-left:auto;display:flex;gap:8px}
-.entry .ops button{padding:7px 15px;border:1px solid var(--rule);background:var(--card);
+.entry .ops button{padding:8px 16px;border:1px solid var(--ink3);background:#fff;
   cursor:pointer;font-family:var(--jp);font-size:14.5px;font-weight:700;color:var(--ink2)}
 .entry .ops .edit:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
 .entry .ops .del:hover{background:var(--mark);color:#fff;border-color:var(--mark)}
+
+/* 本文部 */
+.entry-body{padding:15px 17px 17px}
 .entry .beds{font-size:15.5px;color:var(--ink);line-height:2.0}
-.entry .beds b{font-weight:600}
-.entry .beds .cr{color:var(--mark);font-weight:600}
-.entry .b{margin:11px 0 0;white-space:pre-wrap;color:var(--ink);font-size:17px;line-height:1.9}
-.entry .strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.entry .beds b{font-weight:700}
+.entry .beds .cr{color:var(--mark);font-weight:700}
+.entry .b{margin:13px 0 0;white-space:pre-wrap;color:var(--ink);font-size:17px;
+  line-height:1.9;background:#F7F8F3;border-left:4px solid var(--rule);
+  padding:12px 15px}
+.entry .strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .entry .strip img{width:104px;height:78px;object-fit:cover;border:1px solid var(--rule);
   cursor:zoom-in;background:#fff}
-.entry .tg{display:inline-block;padding:3px 10px;background:var(--ink);color:#fff;
+.entry .tg{display:inline-block;padding:3px 11px;background:var(--ink);color:#fff;
   font-size:13.5px;margin:0 6px 6px 0}
-.entry.active{border-left-color:var(--mark);box-shadow:0 0 0 2px var(--mark-soft)}
-.bk{display:grid;gap:18px}
-.bk-row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;
-  padding-bottom:18px;border-bottom:1px solid var(--rule)}
-.bk-row:last-of-type{border-bottom:0;padding-bottom:0}
-.bk-txt{flex:1;min-width:230px}
-.bk-txt b{display:block;font-size:17px;margin-bottom:4px}
-.bk-txt span{font-size:14.5px;color:var(--ink2);line-height:1.7}
-.bk-btns{display:flex;gap:8px;flex-wrap:wrap}
-.bk-btns button{padding:11px 17px;font-size:14.5px;font-family:var(--jp)}
-.bk-msg{font-size:15px;color:var(--ink2);min-height:1.7em}
-.bk-msg.err{color:var(--mark)}
-.bk-msg.ok{color:var(--ok)}
+.entry.active{outline:3px solid var(--mark);outline-offset:-1px}
+.entry.active .entry-head{background:var(--mark-soft)}
 .empty{padding:44px 0;text-align:center;color:var(--ink2);font-size:16px}
 
 .gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center}
@@ -826,10 +823,12 @@ function renderEntries(items, emptyMsg){
           <button class="del">削除</button>
         </div>
       </div>
-      ${beds?`<div class="beds">${beds}</div>`:""}
-      ${tags?`<div style="margin-top:9px">${tags}</div>`:""}
-      ${it.body?`<p class="b">${esc(it.body)}</p>`:""}
-      <div class="strip"></div>`;
+      <div class="entry-body">
+        ${beds?`<div class="beds">${beds}</div>`:""}
+        ${tags?`<div style="margin-top:9px">${tags}</div>`:""}
+        ${it.body?`<div class="b">${esc(it.body)}</div>`:""}
+        <div class="strip"></div>
+      </div>`;
 
     el.querySelector(".edit").addEventListener("click", ()=> startEdit(it, it.ym));
     el.querySelector(".del").addEventListener("click", async ()=>{
