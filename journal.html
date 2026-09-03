@@ -162,6 +162,18 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .entry .tg{display:inline-block;padding:3px 10px;background:var(--ink);color:#fff;
   font-size:12px;margin:0 5px 5px 0}
 .entry.active{border-left-color:var(--mark);box-shadow:0 0 0 2px var(--mark-soft)}
+.bk{display:grid;gap:18px}
+.bk-row{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;
+  padding-bottom:18px;border-bottom:1px solid var(--rule)}
+.bk-row:last-of-type{border-bottom:0;padding-bottom:0}
+.bk-txt{flex:1;min-width:230px}
+.bk-txt b{display:block;font-size:15px;margin-bottom:4px}
+.bk-txt span{font-size:13px;color:var(--ink2);line-height:1.7}
+.bk-btns{display:flex;gap:8px;flex-wrap:wrap}
+.bk-btns button{padding:10px 16px;font-size:13px;font-family:var(--jp)}
+.bk-msg{font-size:13.5px;color:var(--ink2);min-height:1.7em}
+.bk-msg.err{color:var(--mark)}
+.bk-msg.ok{color:var(--ok)}
 .empty{padding:40px 0;text-align:center;color:var(--ink2);font-size:14px}
 
 .gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center}
@@ -279,6 +291,35 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
   <span class="count" id="count"></span>
 </div>
 <div id="list"></div>
+
+<div class="listhead" style="margin-top:44px">
+  <h2>バックアップ</h2>
+</div>
+<section class="pane" style="margin-top:20px">
+  <div class="bk">
+    <div class="bk-row">
+      <div class="bk-txt">
+        <b>書き出す</b>
+        <span>日誌と写真をまとめて1つのJSONファイルにして保存します。</span>
+      </div>
+      <div class="bk-btns">
+        <button class="ghost" id="ex-full">写真つきで書き出す</button>
+        <button class="ghost" id="ex-text">文字だけ書き出す</button>
+      </div>
+    </div>
+    <div class="bk-row">
+      <div class="bk-txt">
+        <b>読み込む</b>
+        <span>書き出したファイルから復元します。同じIDの記録は上書きされます。</span>
+      </div>
+      <div class="bk-btns">
+        <button class="ghost" id="im-pick">ファイルを選ぶ</button>
+        <input type="file" id="im-file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+    <div class="bk-msg" id="bk-msg"></div>
+  </div>
+</section>
 </div>
 
 </div>
@@ -849,6 +890,97 @@ function closeLb(){
   state.lb = null;
 }
 
+/* ---------- バックアップ ---------- */
+const bkMsg = (t, cls="") => { const e = $("#bk-msg"); e.className = "bk-msg " + cls; e.textContent = t; };
+const mb = n => (n / 1024 / 1024).toFixed(1) + " MB";
+
+async function exportData(withPhotos){
+  if(!state.uid) return;
+  bkMsg("読み込んでいます…");
+  try{
+    const journal = (await db.ref(`${base()}/${CONFIG.journalNode}`).once("value")).val() || {};
+    const photos  = withPhotos
+      ? ((await db.ref(`${base()}/${CONFIG.photoNode}`).once("value")).val() || {})
+      : {};
+
+    let n = 0;
+    Object.values(journal).forEach(m => n += Object.keys(m || {}).length);
+    if(!n){ bkMsg("書き出す記録がありません。", "err"); return; }
+
+    const payload = {
+      app: "farm-journal", version: 1,
+      exportedAt: new Date().toISOString(),
+      withPhotos: !!withPhotos,
+      entries: n,
+      journal, photos
+    };
+    const text = JSON.stringify(payload);
+    const blob = new Blob([text], { type: "application/json" });
+    const d = new Date().toLocaleDateString("sv-SE");
+    const name = `農園日誌_${d}${withPhotos ? "" : "_文字のみ"}.json`;
+
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=> URL.revokeObjectURL(a.href), 10000);
+
+    bkMsg(`${name} を書き出しました（${n} 件・${mb(blob.size)}）`, "ok");
+  }catch(e){
+    bkMsg("書き出せませんでした：" + e.message, "err");
+  }
+}
+
+async function importData(file){
+  if(!state.uid) return;
+  bkMsg("ファイルを読んでいます…");
+  let data;
+  try{ data = JSON.parse(await file.text()); }
+  catch(_){ bkMsg("JSONとして読めませんでした。書き出したファイルを選んでください。", "err"); return; }
+
+  if(data.app !== "farm-journal" || !data.journal){
+    bkMsg("この日誌の書き出しファイルではないようです。", "err"); return;
+  }
+
+  const rows = [];
+  Object.entries(data.journal).forEach(([ym, month])=>{
+    Object.entries(month || {}).forEach(([id, v])=> rows.push({ ym, id, v }));
+  });
+  if(!rows.length){ bkMsg("ファイルの中に記録がありませんでした。", "err"); return; }
+
+  const photoIds = Object.keys(data.photos || {});
+  const ok = confirm(
+    `${rows.length} 件の記録` +
+    (photoIds.length ? `と ${photoIds.length} 件分の写真` : "") +
+    `を読み込みます。\n\n` +
+    `書き出した日時: ${data.exportedAt ? data.exportedAt.slice(0,16).replace("T"," ") : "不明"}\n` +
+    `同じIDの記録は上書きされます。現在の記録のうち、\n` +
+    `ファイルに無いものは消えずに残ります。\n\nよろしいですか。`
+  );
+  if(!ok){ bkMsg("読み込みを取りやめました。"); return; }
+
+  try{
+    let done = 0;
+    for(const r of rows){
+      await db.ref(`${base()}/${CONFIG.journalNode}/${r.ym}/${r.id}`).set(r.v);
+      done++;
+      if(done % 5 === 0 || done === rows.length)
+        bkMsg(`記録を書き込んでいます… ${done} / ${rows.length}`);
+    }
+    let pdone = 0;
+    for(const id of photoIds){
+      await db.ref(`${base()}/${CONFIG.photoNode}/${id}`).set(data.photos[id]);
+      pdone++;
+      if(pdone % 5 === 0 || pdone === photoIds.length)
+        bkMsg(`写真を書き込んでいます… ${pdone} / ${photoIds.length}`);
+    }
+    bkMsg(`読み込みました（記録 ${rows.length} 件・写真 ${photoIds.length} 件分）`, "ok");
+    renderList();
+  }catch(e){
+    bkMsg("途中で失敗しました：" + e.message + "（そこまでの分は書き込まれています）", "err");
+  }
+}
+
 /* ---------- 配線 ---------- */
 buildPlotmap();
 buildTags();
@@ -912,6 +1044,14 @@ $("#v-month").addEventListener("click", ()=>{
   $("#v-month").classList.add("on"); $("#v-recent").classList.remove("on");
   $("#month").style.display = "";
   renderList();
+});
+
+$("#ex-full").addEventListener("click", ()=> exportData(true));
+$("#ex-text").addEventListener("click", ()=> exportData(false));
+$("#im-pick").addEventListener("click", ()=> $("#im-file").click());
+$("#im-file").addEventListener("change", e=>{
+  if(e.target.files[0]) importData(e.target.files[0]);
+  e.target.value = "";
 });
 
 boot();
