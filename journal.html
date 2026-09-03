@@ -300,7 +300,7 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
     <div class="bk-row">
       <div class="bk-txt">
         <b>書き出す</b>
-        <span>日誌と写真をまとめて1つのJSONファイルにして保存します。</span>
+        <span>日誌と写真をまとめて1つのJSONファイルにします。保存先を選べます。</span>
       </div>
       <div class="bk-btns">
         <button class="ghost" id="ex-full">写真つきで書き出す</button>
@@ -896,6 +896,25 @@ const mb = n => (n / 1024 / 1024).toFixed(1) + " MB";
 
 async function exportData(withPhotos){
   if(!state.uid) return;
+
+  const d = new Date().toLocaleDateString("sv-SE");
+  const name = `農園日誌_${d}${withPhotos ? "" : "_文字のみ"}.json`;
+
+  // 保存先を先に聞く（クリック直後でないとブラウザが許可しないため、
+  // データベースの読み込みより先に出す）
+  let handle = null;
+  if(window.showSaveFilePicker){
+    try{
+      handle = await window.showSaveFilePicker({
+        suggestedName: name,
+        types: [{ description: "JSONファイル", accept: { "application/json": [".json"] } }]
+      });
+    }catch(e){
+      if(e && e.name === "AbortError"){ bkMsg("書き出しを取りやめました。"); return; }
+      handle = null;   // 使えないブラウザ等は従来のダウンロードに切り替え
+    }
+  }
+
   bkMsg("読み込んでいます…");
   try{
     const journal = (await db.ref(`${base()}/${CONFIG.journalNode}`).once("value")).val() || {};
@@ -916,16 +935,20 @@ async function exportData(withPhotos){
     };
     const text = JSON.stringify(payload);
     const blob = new Blob([text], { type: "application/json" });
-    const d = new Date().toLocaleDateString("sv-SE");
-    const name = `農園日誌_${d}${withPhotos ? "" : "_文字のみ"}.json`;
 
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = name;
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(()=> URL.revokeObjectURL(a.href), 10000);
-
-    bkMsg(`${name} を書き出しました（${n} 件・${mb(blob.size)}）`, "ok");
+    if(handle){
+      const w = await handle.createWritable();
+      await w.write(blob);
+      await w.close();
+      bkMsg(`${handle.name} に保存しました（${n} 件・${mb(blob.size)}）`, "ok");
+    }else{
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=> URL.revokeObjectURL(a.href), 10000);
+      bkMsg(`${name} をダウンロードしました（${n} 件・${mb(blob.size)}）`, "ok");
+    }
   }catch(e){
     bkMsg("書き出せませんでした：" + e.message, "err");
   }
