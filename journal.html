@@ -13,8 +13,8 @@
 <style>
 :root{
   --paper:#E9EBE3; --card:#F4F5EF; --grid:#D6DACD; --rule:#C2C8B9;
-  --ink:#232821; --ink2:#5C635A; --ink3:#8A9086;
-  --mark:#C4442B; --mark-soft:#F2DAD3; --ok:#3C6E52;
+  --ink:#1B211A; --ink2:#414840; --ink3:#666D64;
+  --mark:#B33A22; --mark-soft:#F2DAD3; --ok:#2F5C43;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --jp:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",YuGothic,"Noto Sans JP",sans-serif;
 }
@@ -72,21 +72,17 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
 .row:hover{background:var(--mark-soft)}
 .row .bar{width:4px;height:15px;background:var(--rule)}
 .row .une{font-family:var(--jp);font-size:13px;letter-spacing:.02em;font-weight:600}
-.row .rid{font-family:var(--mono);font-size:9.5px;color:var(--ink3);letter-spacing:.08em}
+.row .rid{font-family:var(--mono);font-size:10px;color:var(--ink3);letter-spacing:.08em}
 .row.on .rid{color:rgba(255,255,255,.72)}
 .row.on{background:var(--mark);color:#fff}
 .row.on .bar{background:#fff}
-.row .crop{margin-left:auto;font-family:var(--jp);font-size:11.5px;
-  color:var(--ink3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.row .crop{margin-left:auto;font-family:var(--jp);font-size:12px;font-weight:600;
+  color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
 .row.on .crop{color:rgba(255,255,255,.88)}
 
 .editing{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   background:var(--mark-soft);border-left:4px solid var(--mark);
   padding:10px 14px;margin-bottom:18px;font-size:13.5px;color:var(--mark);font-weight:600}
-.entry .edit{float:right;border:0;background:none;color:var(--ink3);cursor:pointer;
-  font-family:var(--mono);font-size:10px;letter-spacing:.1em;margin-right:14px}
-.entry .edit:hover{color:var(--ink)}
-.entry.active{background:var(--mark-soft);margin:0 -12px;padding-left:12px;padding-right:12px}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{padding:5px 11px;border:1px solid var(--rule);background:#fff;cursor:pointer;
   font-size:13px;user-select:none;transition:background .12s}
@@ -100,7 +96,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
 .pick{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .pick:hover{background:#000}
 .shoot:hover{background:var(--mark-soft);border-color:var(--mark)}
-.picknote{margin-top:12px;padding:12px;text-align:center;font-size:12px;color:var(--ink3);
+.picknote{margin-top:12px;padding:12px;text-align:center;font-size:12.5px;color:var(--ink2);
   border:1px dashed transparent;transition:background .12s,border-color .12s}
 .picknote.over{background:var(--mark-soft);border-color:var(--mark);color:var(--mark)}
 @media(max-width:520px){ .shoot{display:none} }
@@ -108,7 +104,7 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
 .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:16px}
 .shot{border:1px solid var(--rule);background:#fff;position:relative}
 .shot img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover}
-.shot .meta{padding:5px 6px;font-family:var(--mono);font-size:9.5px;color:var(--ink3);
+.shot .meta{padding:5px 6px;font-family:var(--mono);font-size:10px;color:var(--ink2);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .shot select{width:100%;font-size:10px;padding:2px 4px;border:0;border-top:1px solid var(--rule);
   font-family:var(--mono);background:#fff}
@@ -132,27 +128,41 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .msg.ok{color:var(--ok)}
 
 .listhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  margin:44px 0 0;padding-bottom:10px;border-bottom:2px solid var(--ink)}
-.listhead h2{margin:0;font-size:15px;letter-spacing:.14em;font-weight:700}
+  margin:44px 0 20px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
+.listhead h2{margin:0;font-size:17px;letter-spacing:.14em;font-weight:700}
+.viewsw{display:flex}
+.vbtn{padding:8px 16px;border:1px solid var(--rule);background:#fff;cursor:pointer;
+  font-family:var(--jp);font-size:13.5px;color:var(--ink2);margin-left:-1px}
+.vbtn:first-child{margin-left:0}
+.vbtn:hover{background:var(--mark-soft)}
+.vbtn.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
 .listhead input[type=month]{width:auto;padding:6px 9px;border:1px solid var(--rule);
-  background:#fff;font-family:var(--mono);font-size:13px}
-.count{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink2);letter-spacing:.1em}
+  background:#fff;font-family:var(--mono);font-size:14px;color:var(--ink)}
+.count{margin-left:auto;font-family:var(--mono);font-size:12px;color:var(--ink2);letter-spacing:.08em}
 
-.entry{border-bottom:1px solid var(--rule);padding:18px 0}
-.entry-top{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
-.entry .d{font-family:var(--mono);font-size:13px;letter-spacing:.06em;color:var(--mark);font-weight:600}
-.entry .t{font-weight:700;font-size:16px}
-.entry .beds{font-size:12px;color:var(--ink2)}
-.entry .b{margin:8px 0 0;white-space:pre-wrap;color:var(--ink2);font-size:14px}
-.entry .strip{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
-.entry .strip img{width:96px;height:72px;object-fit:cover;border:1px solid var(--rule);
+.entry{background:#fff;border:1px solid var(--rule);border-left:4px solid var(--ink);
+  padding:16px 18px;margin-bottom:14px}
+.entry-head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;
+  padding-bottom:11px;border-bottom:1px solid var(--rule);margin-bottom:11px}
+.entry .d{font-family:var(--mono);font-size:14px;letter-spacing:.04em;
+  color:var(--mark);font-weight:600;white-space:nowrap}
+.entry .t{font-weight:700;font-size:17px;color:var(--ink);line-height:1.45}
+.entry .ops{margin-left:auto;display:flex;gap:8px}
+.entry .ops button{padding:7px 15px;border:1px solid var(--rule);background:var(--card);
+  cursor:pointer;font-family:var(--jp);font-size:13px;font-weight:600;color:var(--ink2)}
+.entry .ops .edit:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.entry .ops .del:hover{background:var(--mark);color:#fff;border-color:var(--mark)}
+.entry .beds{font-size:13.5px;color:var(--ink);line-height:1.9}
+.entry .beds b{font-weight:600}
+.entry .beds .cr{color:var(--mark);font-weight:600}
+.entry .b{margin:11px 0 0;white-space:pre-wrap;color:var(--ink);font-size:14.5px;line-height:1.8}
+.entry .strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.entry .strip img{width:104px;height:78px;object-fit:cover;border:1px solid var(--rule);
   cursor:zoom-in;background:#fff}
-.entry .tg{display:inline-block;padding:2px 8px;background:var(--ink);color:var(--card);
-  font-size:11px;margin-right:5px}
-.entry .del{float:right;border:0;background:none;color:var(--ink3);cursor:pointer;
-  font-family:var(--mono);font-size:10px;letter-spacing:.1em}
-.entry .del:hover{color:var(--mark)}
-.empty{padding:40px 0;text-align:center;color:var(--ink3);font-size:14px}
+.entry .tg{display:inline-block;padding:3px 10px;background:var(--ink);color:#fff;
+  font-size:12px;margin:0 5px 5px 0}
+.entry.active{border-left-color:var(--mark);box-shadow:0 0 0 2px var(--mark-soft)}
+.empty{padding:40px 0;text-align:center;color:var(--ink2);font-size:14px}
 
 .gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center}
 .gate h2{margin:0 0 8px;font-size:18px;letter-spacing:.08em}
@@ -242,7 +252,11 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 
 <div class="listhead">
   <h2>記録</h2>
-  <input type="month" id="month">
+  <div class="viewsw">
+    <button class="vbtn on" id="v-recent">最新15件</button>
+    <button class="vbtn" id="v-month">月別</button>
+  </div>
+  <input type="month" id="month" style="display:none">
   <span class="count" id="count"></span>
 </div>
 <div id="list"></div>
@@ -298,7 +312,7 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const pad = n => String(n).padStart(2,"0");
 const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null, editing:null };
+const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null, editing:null, view:"recent", all:null };
 let auth, db;
 
 /* ---------- Firebase 起動 ---------- */
@@ -324,7 +338,7 @@ function boot(){
          <button class="ghost" id="logout">ログアウト</button>`;
       $("#logout").addEventListener("click", ()=> auth.signOut());
       loadCrops();
-      loadMonth($("#month").value);
+      renderList(true);
     }else{
       state.uid = null;
       $("#gate").style.display = "block";
@@ -659,8 +673,8 @@ async function save(){
       : `保存しました（写真 ${Object.keys(photos).length} 枚）`;
     cancelEdit();
     clearForm(false);
-    $("#month").value = ym;
-    loadMonth(ym);
+    if(state.view === "month") $("#month").value = ym;
+    renderList(true);
   }catch(e){
     msg.className = "msg err";
     msg.textContent = "保存できませんでした：" + e.message;
@@ -677,6 +691,30 @@ function clearForm(alsoDate=true){
 }
 
 /* ---------- 一覧 ---------- */
+const RECENT_N = 15;
+
+async function loadRecent(){
+  if(!state.uid) return;
+  const list = $("#list"), cnt = $("#count");
+  list.innerHTML = `<div class="empty">読み込んでいます…</div>`;
+  cnt.textContent = "";
+  let all;
+  try{ all = (await db.ref(`${base()}/${CONFIG.journalNode}`).once("value")).val(); }
+  catch(e){ list.innerHTML = `<div class="empty">読み込めませんでした：${esc(e.message)}</div>`; return; }
+
+  const items = [];
+  Object.entries(all || {}).forEach(([ym, month])=>{
+    Object.entries(month || {}).forEach(([id, v])=> items.push({ id, ym, ...v }));
+  });
+  items.sort((a,b)=> (b.date + b.id).localeCompare(a.date + a.id));
+
+  const shown = items.slice(0, RECENT_N);
+  cnt.textContent = items.length > RECENT_N
+    ? `最新 ${shown.length} 件 / 全 ${items.length} 件`
+    : `${items.length} 件`;
+  renderEntries(shown, "まだ記録がありません");
+}
+
 async function loadMonth(ym){
   if(!state.uid) return;
   const list = $("#list"), cnt = $("#count");
@@ -686,51 +724,65 @@ async function loadMonth(ym){
   try{ data = (await db.ref(`${base()}/${CONFIG.journalNode}/${ym}`).once("value")).val(); }
   catch(e){ list.innerHTML = `<div class="empty">読み込めませんでした：${esc(e.message)}</div>`; return; }
 
-  if(!data){ list.innerHTML = `<div class="empty">${esc(ym)} の記録はまだありません</div>`; return; }
-
-  const items = Object.entries(data).map(([id,v])=>({id,...v}))
-    .sort((a,b)=> (b.date+b.id).localeCompare(a.date+a.id));
+  const items = Object.entries(data || {}).map(([id,v])=>({ id, ym, ...v }))
+    .sort((a,b)=> (b.date + b.id).localeCompare(a.date + a.id));
   cnt.textContent = `${items.length} 件`;
+  renderEntries(items, `${esc(ym)} の記録はまだありません`);
+}
+
+// 今の表示モードで一覧を描き直す
+function renderList(){
+  if(state.view === "month") loadMonth($("#month").value);
+  else loadRecent();
+}
+
+function renderEntries(items, emptyMsg){
+  const list = $("#list");
+  if(!items.length){ list.innerHTML = `<div class="empty">${emptyMsg}</div>`; return; }
   list.innerHTML = "";
 
   for(const it of items){
     const el = document.createElement("div");
     el.className = "entry";
+
     const beds = (it.rows||[]).slice().sort().map(b=>{
       const c = it.crops && it.crops[b];
-      return bedLabel(b) + (c ? `：${c}` : "");
+      return `<b>${esc(bedLabel(b))}</b>` + (c ? `<span class="cr">：${esc(c)}</span>` : "");
     }).join("　／　");
     const tags = (it.tags||[]).map(t=>`<span class="tg">${esc(t)}</span>`).join("");
+
     el.innerHTML = `
-      <button class="del" data-id="${it.id}" data-ym="${ym}">削除</button>
-      <button class="edit" data-id="${it.id}" data-ym="${ym}">編集</button>
-      <div class="entry-top">
+      <div class="entry-head">
         <span class="d">${esc(it.date)}</span>
         <span class="t">${esc(it.title||"")}</span>
+        <div class="ops">
+          <button class="edit">編集</button>
+          <button class="del">削除</button>
+        </div>
       </div>
-      ${beds?`<div class="beds">${esc(beds)}</div>`:""}
-      ${tags?`<div style="margin-top:7px">${tags}</div>`:""}
+      ${beds?`<div class="beds">${beds}</div>`:""}
+      ${tags?`<div style="margin-top:9px">${tags}</div>`:""}
       ${it.body?`<p class="b">${esc(it.body)}</p>`:""}
       <div class="strip"></div>`;
-    el.querySelector(".edit").addEventListener("click", ()=> startEdit(it, ym));
-    el.querySelector(".del").addEventListener("click", async ev=>{
-      if(!confirm("この記録を削除します。よろしいですか。")) return;
-      const b = ev.currentTarget;
-      await db.ref(`${base()}/${CONFIG.journalNode}/${b.dataset.ym}/${b.dataset.id}`).remove();
-      await db.ref(`${base()}/${CONFIG.photoNode}/${b.dataset.id}`).remove();
-      loadMonth(b.dataset.ym);
+
+    el.querySelector(".edit").addEventListener("click", ()=> startEdit(it, it.ym));
+    el.querySelector(".del").addEventListener("click", async ()=>{
+      if(!confirm(`${it.date}「${it.title||""}」を削除します。よろしいですか。`)) return;
+      await db.ref(`${base()}/${CONFIG.journalNode}/${it.ym}/${it.id}`).remove();
+      await db.ref(`${base()}/${CONFIG.photoNode}/${it.id}`).remove();
+      renderList();
     });
     list.appendChild(el);
 
-    db.ref(`${base()}/${CONFIG.photoNode}/${it.id}`).once("value").then(s=>{
-      const ps = s.val(); if(!ps) return;
+    db.ref(`${base()}/${CONFIG.photoNode}/${it.id}`).once("value").then(sn=>{
+      const ps = sn.val(); if(!ps) return;
       const strip = el.querySelector(".strip");
-      Object.values(ps).forEach(p=>{
+      Object.values(ps).forEach(pp=>{
         const im = document.createElement("img");
-        im.src = p.thumb; im.alt = p.file || "";
-        im.title = [(p.taken||"").replace(/^(\d{4}):(\d{2}):(\d{2})/,"$1-$2-$3"),
-                    p.row ? bedShort(p.row) : "", p.file].filter(Boolean).join("  ");
-        im.addEventListener("click", ()=> lightbox(p));
+        im.src = pp.thumb; im.alt = pp.file || "";
+        im.title = [(pp.taken||"").replace(/^(\d{4}):(\d{2}):(\d{2})/,"$1-$2-$3"),
+                    pp.row ? bedShort(pp.row) : "", pp.file].filter(Boolean).join("  ");
+        im.addEventListener("click", ()=> lightbox(pp));
         strip.appendChild(im);
       });
     }).catch(()=>{});
@@ -776,7 +828,20 @@ $("#login").addEventListener("click", ()=>{
 
 const now = new Date();
 $("#month").value = `${now.getFullYear()}-${pad(now.getMonth()+1)}`;
-$("#month").addEventListener("change", e=> loadMonth(e.target.value));
+$("#month").addEventListener("change", ()=> renderList());
+
+$("#v-recent").addEventListener("click", ()=>{
+  state.view = "recent";
+  $("#v-recent").classList.add("on"); $("#v-month").classList.remove("on");
+  $("#month").style.display = "none";
+  renderList();
+});
+$("#v-month").addEventListener("click", ()=>{
+  state.view = "month";
+  $("#v-month").classList.add("on"); $("#v-recent").classList.remove("on");
+  $("#month").style.display = "";
+  renderList();
+});
 
 boot();
 </script>
