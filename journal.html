@@ -171,12 +171,31 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
   margin-bottom:26px;font-size:14px}
 .notice code{font-family:var(--mono);font-size:12.5px;background:#fff;padding:1px 5px;border:1px solid var(--rule)}
 
-.lb{position:fixed;inset:0;background:rgba(35,40,33,.9);display:none;place-items:center;
-  z-index:50;padding:24px;cursor:zoom-out}
+.lb{position:fixed;inset:0;background:rgba(20,24,19,.94);display:none;place-items:center;
+  z-index:50;padding:24px 74px 56px;cursor:zoom-out}
 .lb.on{display:grid}
-.lb img{max-width:100%;max-height:88vh}
-.lb .cap{position:absolute;bottom:16px;left:0;right:0;text-align:center;
-  color:#DDE0D6;font-family:var(--mono);font-size:11px}
+.lb img{max-width:100%;max-height:84vh;cursor:default;
+  box-shadow:0 2px 24px rgba(0,0,0,.5);background:#000}
+.lb .cap{position:absolute;bottom:18px;left:0;right:0;text-align:center;
+  color:#E4E7DC;font-family:var(--mono);font-size:12px;letter-spacing:.04em;
+  padding:0 20px;pointer-events:none}
+.lb .cap .no{color:var(--mark-soft);font-weight:600;margin-right:14px}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);
+  width:56px;height:96px;border:0;cursor:pointer;padding:0;
+  background:rgba(255,255,255,.10);color:#fff;font-size:38px;line-height:1;
+  font-family:var(--mono);transition:background .12s}
+.lb-nav:hover{background:rgba(255,255,255,.24)}
+.lb-nav.prev{left:8px}
+.lb-nav.next{right:8px}
+.lb-close{position:absolute;top:10px;right:10px;width:44px;height:44px;border:0;
+  cursor:pointer;padding:0;background:rgba(255,255,255,.10);color:#fff;
+  font-size:24px;line-height:1;transition:background .12s}
+.lb-close:hover{background:rgba(255,255,255,.24)}
+@media(max-width:560px){
+  .lb{padding:16px 10px 52px}
+  .lb-nav{width:46px;height:80px;font-size:32px;background:rgba(255,255,255,.16)}
+  .lb-nav.prev{left:2px} .lb-nav.next{right:2px}
+}
 @media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -264,7 +283,13 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 
 </div>
 
-<div class="lb" id="lb"><img alt=""><div class="cap"></div></div>
+<div class="lb" id="lb">
+  <button class="lb-close" id="lb-close" aria-label="閉じる">×</button>
+  <button class="lb-nav prev" id="lb-prev" aria-label="前の写真">‹</button>
+  <img alt="">
+  <button class="lb-nav next" id="lb-next" aria-label="次の写真">›</button>
+  <div class="cap"></div>
+</div>
 
 <script>
 /* ==========================================================
@@ -777,25 +802,51 @@ function renderEntries(items, emptyMsg){
     db.ref(`${base()}/${CONFIG.photoNode}/${it.id}`).once("value").then(sn=>{
       const ps = sn.val(); if(!ps) return;
       const strip = el.querySelector(".strip");
-      Object.values(ps).forEach(pp=>{
+      const arr = Object.values(ps);
+      arr.forEach((pp, idx)=>{
         const im = document.createElement("img");
         im.src = pp.thumb; im.alt = pp.file || "";
         im.title = [(pp.taken||"").replace(/^(\d{4}):(\d{2}):(\d{2})/,"$1-$2-$3"),
                     pp.row ? bedShort(pp.row) : "", pp.file].filter(Boolean).join("  ");
-        im.addEventListener("click", ()=> lightbox(pp));
+        im.addEventListener("click", ()=> lightbox(arr, idx));
         strip.appendChild(im);
       });
     }).catch(()=>{});
   }
 }
 
-function lightbox(p){
+function lightbox(arr, i){
+  state.lb = { arr, i };
+  showLb();
+  $("#lb").classList.add("on");
+}
+
+function showLb(){
   const lb = $("#lb");
+  if(!state.lb) return;
+  const { arr, i } = state.lb;
+  const p = arr[i];
   lb.querySelector("img").src = p.thumb;
   const t = (p.taken||"").replace(/^(\d{4}):(\d{2}):(\d{2})/, "$1-$2-$3");
-  lb.querySelector(".cap").textContent =
-    [t, p.row ? bedLabel(p.row) : "", p.file].filter(Boolean).join("   ");
-  lb.classList.add("on");
+  const info = [t, p.row ? bedLabel(p.row) : "", p.file].filter(Boolean).join("　");
+  lb.querySelector(".cap").innerHTML =
+    (arr.length > 1 ? `<span class="no">${i+1} / ${arr.length}</span>` : "") + esc(info);
+  const many = arr.length > 1;
+  $("#lb-prev").style.display = many ? "" : "none";
+  $("#lb-next").style.display = many ? "" : "none";
+}
+
+function stepLb(d){
+  if(!state.lb) return;
+  const n = state.lb.arr.length;
+  if(n < 2) return;
+  state.lb.i = (state.lb.i + d + n) % n;
+  showLb();
+}
+
+function closeLb(){
+  $("#lb").classList.remove("on");
+  state.lb = null;
 }
 
 /* ---------- 配線 ---------- */
@@ -816,8 +867,28 @@ drop.addEventListener("drop", e=> ingest(e.dataTransfer.files));
 $("#save").addEventListener("click", save);
 $("#clear").addEventListener("click", ()=>{ cancelEdit(); clearForm(); $("#msg").textContent=""; });
 $("#cancel-edit").addEventListener("click", ()=>{ cancelEdit(); clearForm(); $("#msg").textContent=""; });
-$("#lb").addEventListener("click", ()=> $("#lb").classList.remove("on"));
-document.addEventListener("keydown", e=>{ if(e.key==="Escape") $("#lb").classList.remove("on"); });
+// 背景をクリックしたときだけ閉じる（写真やボタンでは閉じない）
+$("#lb").addEventListener("click", e=>{ if(e.target.id === "lb") closeLb(); });
+$("#lb-close").addEventListener("click", closeLb);
+$("#lb-prev").addEventListener("click", ()=> stepLb(-1));
+$("#lb-next").addEventListener("click", ()=> stepLb(1));
+
+document.addEventListener("keydown", e=>{
+  if(!$("#lb").classList.contains("on")) return;
+  if(e.key === "Escape")     closeLb();
+  if(e.key === "ArrowLeft")  stepLb(-1);
+  if(e.key === "ArrowRight") stepLb(1);
+});
+
+// スマホのスワイプで前後に送る
+let tx = null;
+$("#lb").addEventListener("touchstart", e=>{ tx = e.changedTouches[0].clientX; }, {passive:true});
+$("#lb").addEventListener("touchend", e=>{
+  if(tx === null) return;
+  const dx = e.changedTouches[0].clientX - tx;
+  tx = null;
+  if(Math.abs(dx) > 45) stepLb(dx < 0 ? 1 : -1);
+}, {passive:true});
 $("#login").addEventListener("click", ()=>{
   const provider = new firebase.auth.GoogleAuthProvider();
   auth.signInWithPopup(provider).catch(e=>{
