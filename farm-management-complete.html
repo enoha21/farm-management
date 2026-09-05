@@ -109,11 +109,13 @@
       "その他":      { minYears: 1, color: "#6b7280", crops: [] },
     };
 
+    // 配列順＝画面表示順。idの番号と物理的な畝の位置は逆（F1R6が物理的な1番畝）のため、
+    // 表示順が北側から1,2,3...となるよう配列自体をR6→R1の順に並べている（idは変更しない）
     const RIDGES = [
-      {id:"F1R1",field:1,no:1},{id:"F1R2",field:1,no:2},{id:"F1R3",field:1,no:3},
-      {id:"F1R4",field:1,no:4},{id:"F1R5",field:1,no:5},{id:"F1R6",field:1,no:6},
-      {id:"F2R1",field:2,no:1},{id:"F2R2",field:2,no:2},{id:"F2R3",field:2,no:3},
-      {id:"F2R4",field:2,no:4},{id:"F2R5",field:2,no:5},{id:"F2R6",field:2,no:6},
+      {id:"F1R6",field:1,no:1},{id:"F1R5",field:1,no:2},{id:"F1R4",field:1,no:3},
+      {id:"F1R3",field:1,no:4},{id:"F1R2",field:1,no:5},{id:"F1R1",field:1,no:6},
+      {id:"F2R6",field:2,no:1},{id:"F2R5",field:2,no:2},{id:"F2R4",field:2,no:3},
+      {id:"F2R3",field:2,no:4},{id:"F2R2",field:2,no:5},{id:"F2R1",field:2,no:6},
     ];
 
     const FIELDS = [

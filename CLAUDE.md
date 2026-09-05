@@ -57,8 +57,10 @@ const FIELDS = [
   {id:2, name:"圃場2", loc:"南側"},
 ];
 
-// 畝定義（各圃場6畝）。id・no とも1〜6で一致（idの番号=noの番号、逆順ではない）
-const RIDGES = [ {id:"F1R1",field:1,no:1}, ... {id:"F2R6",field:2,no:6} ];
+// 畝定義（各圃場6畝）。物理的な畝の位置とidの番号は逆（F1R6/F2R6が北側の物理1番畝）。
+// 配列の並び順＝画面表示順のため、表示が北から1,2,3...となるよう配列をR6→R1の順に並べ、
+// noを1〜6で割り当てている（idそのものは変更しない。データ紐付けはidで行われるため）
+const RIDGES = [ {id:"F1R6",field:1,no:1}, ... {id:"F1R1",field:1,no:6}, {id:"F2R6",field:2,no:1}, ... {id:"F2R1",field:2,no:6} ];
 
 // 作物科目データベース（輪作年数・色・表記ゆれ含む作物名リスト）
 const CROP_FAMILIES = { "ナス科": {minYears:3, color:"#dc2626", crops:[...]}, ... };
