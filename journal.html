@@ -6,7 +6,7 @@
 <title>農園日誌</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -16,23 +16,23 @@
   --ink:#1B211A; --ink2:#414840; --ink3:#666D64;
   --mark:#B33A22; --mark-soft:#F2DAD3; --ok:#2F5C43;
   --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
-  --jp:"BIZ UDPGothic","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",YuGothic,sans-serif;
+  --jp:"Noto Sans JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",YuGothic,sans-serif;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
   background:var(--paper);
   background-image:
-    repeating-linear-gradient(to right,var(--grid) 0 1px,transparent 1px 28px),
-    repeating-linear-gradient(to bottom,var(--grid) 0 1px,transparent 1px 28px);
+    repeating-linear-gradient(to right,var(--grid) 0 1px,transparent 1px 32px),
+    repeating-linear-gradient(to bottom,var(--grid) 0 1px,transparent 1px 32px);
   color:var(--ink); font-family:var(--jp); font-size:17px; line-height:1.85;
   -webkit-text-size-adjust:100%;
 }
 .wrap{max-width:1180px;margin:0 auto;padding:0 20px 80px}
 
 header{display:flex;align-items:baseline;gap:20px;flex-wrap:wrap;
-  padding:26px 0 14px;border-bottom:2px solid var(--ink);margin-bottom:26px}
-h1{margin:0;font-size:26px;font-weight:700;letter-spacing:.16em}
+  padding:26px 0 14px;border-bottom:1px solid var(--rule);margin-bottom:26px}
+h1{margin:0;font-size:26px;font-weight:500;letter-spacing:.08em}
 .eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.24em;
   text-transform:uppercase;color:var(--ink2)}
 .back{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;color:var(--ink2);text-decoration:none;border-bottom:1px solid var(--rule)}
@@ -40,7 +40,7 @@ h1{margin:0;font-size:26px;font-weight:700;letter-spacing:.16em}
 .who{margin-left:auto;display:flex;align-items:center;gap:12px;
   font-family:var(--mono);font-size:12.5px;letter-spacing:.06em;color:var(--ink2)}
 
-section.pane{background:var(--card);border:1px solid var(--rule);padding:20px}
+section.pane{background:var(--card);border:1px solid var(--rule);padding:22px}
 .cols{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
 @media(max-width:880px){.cols{grid-template-columns:1fr}}
 .pane-head{display:flex;align-items:center;gap:10px;
@@ -69,36 +69,36 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--mark);outline-of
 .row{display:flex;align-items:center;gap:8px;padding:5px 8px;cursor:pointer;
   border:1px solid transparent;background:#FBFBF7;user-select:none;
   transition:background .12s,color .12s}
-.row:hover{background:var(--mark-soft)}
+.row:hover{background:var(--band)}
 .row .bar{width:4px;height:15px;background:var(--rule)}
-.row .une{font-family:var(--jp);font-size:15.5px;letter-spacing:.02em;font-weight:600}
+.row .une{font-family:var(--jp);font-size:15.5px;font-weight:500}
 .row .rid{font-family:var(--mono);font-size:11.5px;color:var(--ink3);letter-spacing:.08em}
 .row.on .rid{color:rgba(255,255,255,.72)}
-.row.on{background:var(--mark);color:#fff}
+.row.on{background:var(--leaf);color:#fff}
 .row.on .bar{background:#fff}
-.row .crop{margin-left:auto;font-family:var(--jp);font-size:14px;font-weight:600;
+.row .crop{margin-left:auto;font-family:var(--jp);font-size:14px;
   color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
 .row.on .crop{color:rgba(255,255,255,.88)}
 
 .editing{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   background:var(--mark-soft);border-left:4px solid var(--mark);
-  padding:11px 15px;margin-bottom:18px;font-size:15px;color:var(--mark);font-weight:700}
+  padding:11px 15px;margin-bottom:18px;font-size:15px;color:var(--mark);font-weight:500}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
 .tag{padding:5px 11px;border:1px solid var(--rule);background:#fff;cursor:pointer;
   font-size:15px;user-select:none;transition:background .12s}
-.tag:hover{background:var(--mark-soft)}
+.tag:hover{background:var(--band)}
 .tag.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
 
 .picker{display:flex;gap:10px;flex-wrap:wrap}
 .pick,.shoot{flex:1;min-width:150px;padding:20px 16px;border:1px solid var(--rule);
-  background:#fff;cursor:pointer;font-family:var(--jp);font-size:18px;font-weight:700;
+  background:#fff;cursor:pointer;font-family:var(--jp);font-size:18px;font-weight:500;
   color:var(--ink);transition:background .12s,border-color .12s}
 .pick{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .pick:hover{background:#000}
-.shoot:hover{background:var(--mark-soft);border-color:var(--mark)}
+.shoot:hover{background:var(--band);border-color:var(--leaf)}
 .picknote{margin-top:12px;padding:12px;text-align:center;font-size:14px;color:var(--ink2);
   border:1px dashed transparent;transition:background .12s,border-color .12s}
-.picknote.over{background:var(--mark-soft);border-color:var(--mark);color:var(--mark)}
+.picknote.over{background:var(--band);border-color:var(--leaf);color:var(--leaf)}
 @media(max-width:520px){ .shoot{display:none} }
 
 .shots{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:16px}
@@ -128,51 +128,48 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .msg.ok{color:var(--ok)}
 
 .listhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
-  margin:44px 0 20px;padding-bottom:10px;border-bottom:2px solid var(--ink)}
-.listhead h2{margin:0;font-size:19px;letter-spacing:.14em;font-weight:700}
+  margin:44px 0 20px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
+.listhead h2{margin:0;font-size:19px;letter-spacing:.06em;font-weight:500}
 .viewsw{display:flex}
 .vbtn{padding:8px 16px;border:1px solid var(--rule);background:#fff;cursor:pointer;
   font-family:var(--jp);font-size:15px;color:var(--ink2);margin-left:-1px}
 .vbtn:first-child{margin-left:0}
-.vbtn:hover{background:var(--mark-soft)}
-.vbtn.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:600}
+.vbtn:hover{background:var(--band)}
+.vbtn.on{background:var(--ink);color:#fff;border-color:var(--ink);font-weight:500}
 .listhead input[type=month]{width:auto;padding:6px 9px;border:1px solid var(--rule);
   background:#fff;font-family:var(--mono);font-size:15px;color:var(--ink)}
 .count{margin-left:auto;font-family:var(--mono);font-size:13.5px;color:var(--ink2);letter-spacing:.08em}
 
-.entry{background:#fff;border:1px solid var(--rule);margin-bottom:18px;overflow:hidden}
+.entry{background:#fff;border:1px solid var(--rule);border-left:3px solid var(--leaf);
+  margin-bottom:16px;overflow:hidden}
 
-/* 見出し部：帯を敷いて本文と切り離す */
-.entry-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
-  background:var(--ink);padding:12px 16px}
-.entry .d{display:inline-block;background:var(--mark);color:#fff;
-  padding:4px 11px;font-family:var(--mono);font-size:14px;letter-spacing:.03em;
-  font-weight:600;white-space:nowrap}
-.entry .t{font-weight:700;font-size:21px;color:#fff;line-height:1.4;
-  letter-spacing:.04em}
-.entry .ops{margin-left:auto;display:flex;gap:8px}
-.entry .ops button{padding:8px 16px;border:1px solid rgba(255,255,255,.45);
-  background:transparent;cursor:pointer;font-family:var(--jp);font-size:14.5px;
-  font-weight:700;color:#fff;transition:background .12s,border-color .12s}
-.entry .ops .edit:hover{background:#fff;color:var(--ink);border-color:#fff}
+/* 見出し部：淡い帯で本文と分ける */
+.entry-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;
+  background:var(--band);border-bottom:1px solid var(--rule);padding:13px 18px}
+.entry .d{font-family:var(--mono);font-size:14px;letter-spacing:.03em;
+  color:var(--ink3);white-space:nowrap}
+.entry .t{font-weight:700;font-size:21px;color:var(--ink);line-height:1.45}
+.entry .ops{margin-left:auto;display:flex;gap:8px;align-self:center}
+.entry .ops button{padding:7px 15px;border:1px solid var(--rule);background:#fff;
+  cursor:pointer;font-family:var(--jp);font-size:14px;font-weight:500;color:var(--ink2);
+  transition:background .12s,color .12s,border-color .12s}
+.entry .ops .edit:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
 .entry .ops .del:hover{background:var(--mark);color:#fff;border-color:var(--mark)}
 
 /* 本文部 */
-.entry-body{padding:15px 17px 17px}
-.entry .beds{font-size:15.5px;color:var(--ink);line-height:2.0}
-.entry .beds b{font-weight:700}
-.entry .beds .cr{color:var(--mark);font-weight:700}
-.entry .b{margin:13px 0 0;white-space:pre-wrap;color:var(--ink);font-size:17px;
-  line-height:1.9;background:#F7F8F3;border-left:4px solid var(--rule);
-  padding:12px 15px}
+.entry-body{padding:15px 18px 18px}
+.entry .beds{font-size:15.5px;color:var(--ink2);line-height:2.0}
+.entry .beds b{font-weight:500;color:var(--ink)}
+.entry .beds .cr{color:var(--leaf);font-weight:500}
+.entry .b{margin:12px 0 0;white-space:pre-wrap;color:var(--ink);font-size:17px;
+  line-height:1.9}
 .entry .strip{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
 .entry .strip img{width:104px;height:78px;object-fit:cover;border:1px solid var(--rule);
   cursor:zoom-in;background:#fff}
-.entry .tg{display:inline-block;padding:3px 11px;background:var(--ink);color:#fff;
-  font-size:13.5px;margin:0 6px 6px 0}
-.entry.active{outline:3px solid var(--mark);outline-offset:-1px}
-.entry.active .entry-head{background:var(--mark)}
-.entry.active .d{background:#fff;color:var(--mark)}
+.entry .tg{display:inline-block;padding:3px 11px;background:var(--band);
+  border:1px solid var(--rule);color:var(--ink2);font-size:13.5px;margin:0 6px 6px 0}
+.entry.active{border-left-color:var(--mark);box-shadow:0 0 0 2px var(--mark-soft)}
+.entry.active .entry-head{background:var(--mark-soft)}
 .empty{padding:44px 0;text-align:center;color:var(--ink2);font-size:16px}
 
 .gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center}
