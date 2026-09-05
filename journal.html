@@ -80,21 +80,19 @@ input:focus,textarea:focus,select:focus{outline:2px solid var(--sprout);outline-
   transition:background .12s,color .12s}
 .row:hover{background:var(--band)}
 .row .bar{width:4px;height:16px;background:var(--sprout);border-radius:2px}
-.row .une{font-family:var(--jp);font-size:15.5px;font-weight:500}
-.row .rid{font-family:var(--mono);font-size:11.5px;color:var(--ink3);letter-spacing:.08em}
-.row.on .rid{color:rgba(255,255,255,.72)}
+.row .une{font-family:var(--jp);font-size:15.5px;font-weight:500;flex-shrink:0}
 .row.on{background:var(--leaf);color:#fff}
 .row.on .bar{background:#fff}
-.row .crop{margin-left:auto;font-family:var(--jp);font-size:14px;
-  color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:180px}
+.row .crop{flex:1;min-width:0;font-family:var(--jp);font-size:14px;
+  color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row.on .crop{color:rgba(255,255,255,.88)}
 
 .editing{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   background:var(--mark-soft);border-left:4px solid var(--mark);
   padding:11px 15px;margin-bottom:18px;font-size:15px;color:var(--mark);font-weight:500}
 .tags{display:flex;flex-wrap:wrap;gap:6px}
-.tag{padding:6px 13px;border:1px solid var(--rule);background:#fff;cursor:pointer;border-radius:14px;
-  font-size:15px;user-select:none;transition:background .12s}
+.tag{padding:4px 10px;border:1px solid var(--rule);background:#fff;cursor:pointer;border-radius:12px;
+  font-size:13px;user-select:none;transition:background .12s}
 .tag:hover{background:var(--band)}
 .tag.on{background:var(--leaf);color:#fff;border-color:var(--leaf)}
 
@@ -135,6 +133,30 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .msg{font-size:14px;color:var(--ink2)}
 .msg.err{color:var(--mark)}
 .msg.ok{color:var(--ok)}
+
+.calwrap{margin-bottom:22px}
+.calnav{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.calnav button{padding:5px 12px;border:1px solid var(--rule);background:#fff;cursor:pointer;
+  border-radius:3px;font-family:var(--mono);font-size:13px;color:var(--ink2)}
+.calnav button:hover{background:var(--band)}
+.calnav .ym{font-family:var(--jp);font-size:16px;color:var(--ink);letter-spacing:.04em;font-weight:500}
+.calclear{font-family:var(--mono);font-size:12px;color:var(--leaf);cursor:pointer;
+  text-decoration:underline;margin-left:auto}
+.calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.calhead{font-family:var(--mono);font-size:11px;color:var(--ink3);text-align:center;
+  padding:4px 0;letter-spacing:.06em}
+.calday{position:relative;min-height:42px;border:1px solid var(--rule);background:#fff;
+  border-radius:3px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:13px;color:var(--ink2);transition:background .12s,border-color .12s}
+.calday:hover{background:var(--band)}
+.calday.pad{visibility:hidden;pointer-events:none}
+.calday.has{border-color:var(--sprout)}
+.calday.has::after{content:"";position:absolute;bottom:5px;width:5px;height:5px;
+  border-radius:50%;background:var(--leaf)}
+.calday.today{font-weight:700;color:var(--leaf)}
+.calday.sel{background:var(--leaf);color:#fff;border-color:var(--leaf)}
+.calday.sel::after{background:#fff}
+@media(max-width:520px){ .calday{min-height:34px;font-size:12px} }
 
 .listhead{display:flex;align-items:center;gap:14px;flex-wrap:wrap;
   margin:44px 0 20px;padding-bottom:10px;border-bottom:1px solid var(--rule)}
@@ -264,10 +286,10 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
     <div class="tags" id="tags" style="margin-bottom:18px"></div>
 
     <label class="fld"><span>見出し</span>
-      <input type="text" id="f-title" placeholder="サトイモ2回目追肥" autocomplete="off"></label>
+      <input type="text" id="f-title" autocomplete="off"></label>
 
     <label class="fld" style="margin-bottom:0"><span>本文（任意）</span>
-      <textarea id="f-body" placeholder="書きたい日だけで大丈夫です"></textarea></label>
+      <textarea id="f-body"></textarea></label>
   </section>
 
   <section class="pane">
@@ -294,10 +316,12 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
   <div class="viewsw">
     <button class="vbtn on" id="v-recent">最新15件</button>
     <button class="vbtn" id="v-month">月別</button>
+    <button class="vbtn" id="v-cal">カレンダー</button>
   </div>
   <input type="month" id="month" style="display:none">
   <span class="count" id="count"></span>
 </div>
+<div id="calendar" style="display:none"></div>
 <div id="list"></div>
 
 <div class="listhead" style="margin-top:44px">
@@ -386,7 +410,7 @@ const $$ = s => Array.from(document.querySelectorAll(s));
 const pad = n => String(n).padStart(2,"0");
 const esc = s => String(s??"").replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null, editing:null, view:"recent", all:null };
+const state = { beds:new Set(), tags:new Set(), shots:[], crops:{}, uid:null, editing:null, view:"recent", all:null, calSel:null };
 let auth, db;
 
 /* ---------- Firebase 起動 ---------- */
@@ -454,7 +478,6 @@ function buildPlotmap(){
       r.className = "row"; r.dataset.bed = id;
       r.innerHTML = `<span class="bar"></span>
         <span class="une">第${uneNo(f,i)}畝</span>
-        <span class="rid">${id}</span>
         <span class="crop" data-crop="${id}"></span>`;
       r.addEventListener("click", ()=>{
         if(state.beds.has(id)){ state.beds.delete(id); r.classList.remove("on"); }
@@ -800,13 +823,88 @@ async function loadMonth(ym){
 
   const items = Object.entries(data || {}).map(([id,v])=>({ id, ym, ...v }))
     .sort((a,b)=> (b.date + b.id).localeCompare(a.date + a.id));
-  cnt.textContent = `${items.length} 件`;
-  renderEntries(items, `${esc(ym)} の記録はまだありません`);
+
+  if(state.view === "cal"){
+    renderCalendar(ym, items);
+    const shown = state.calSel ? items.filter(it=> it.date === state.calSel) : items;
+    cnt.textContent = state.calSel ? `${esc(state.calSel)}：${shown.length} 件` : `${items.length} 件`;
+    renderEntries(shown, state.calSel ? `${esc(state.calSel)} の記録はありません` : `${esc(ym)} の記録はまだありません`);
+  }else{
+    $("#calendar").style.display = "none";
+    cnt.textContent = `${items.length} 件`;
+    renderEntries(items, `${esc(ym)} の記録はまだありません`);
+  }
+}
+
+// カレンダー：記録がある日に印を付け、日付クリックでその日だけに絞り込む
+function renderCalendar(ym, items){
+  const box = $("#calendar");
+  box.style.display = "block";
+  box.innerHTML = "";
+
+  const hasSet = new Set(items.map(it=> it.date));
+  const [y, m] = ym.split("-").map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const startWeekday = new Date(y, m-1, 1).getDay();
+  const today = new Date().toLocaleDateString("sv-SE");
+
+  const wrap = document.createElement("div");
+  wrap.className = "calwrap";
+
+  const nav = document.createElement("div");
+  nav.className = "calnav";
+  nav.innerHTML = `<button id="cal-prev" aria-label="前の月">‹</button>
+    <span class="ym">${y}年${m}月</span>
+    <button id="cal-next" aria-label="次の月">›</button>
+    ${state.calSel ? `<span class="calclear" id="cal-clear">選択を解除（${esc(state.calSel)}）</span>` : ""}`;
+  wrap.appendChild(nav);
+
+  const grid = document.createElement("div");
+  grid.className = "calgrid";
+  ["日","月","火","水","木","金","土"].forEach(w=>{
+    const h = document.createElement("div"); h.className = "calhead"; h.textContent = w;
+    grid.appendChild(h);
+  });
+  for(let i=0;i<startWeekday;i++){
+    const p = document.createElement("div"); p.className = "calday pad";
+    grid.appendChild(p);
+  }
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr = `${y}-${pad(m)}-${pad(d)}`;
+    const cell = document.createElement("div");
+    cell.className = "calday"
+      + (hasSet.has(dateStr) ? " has" : "")
+      + (dateStr === today ? " today" : "")
+      + (dateStr === state.calSel ? " sel" : "");
+    cell.textContent = d;
+    cell.addEventListener("click", ()=>{
+      state.calSel = (state.calSel === dateStr) ? null : dateStr;
+      loadMonth(ym);
+    });
+    grid.appendChild(cell);
+  }
+  wrap.appendChild(grid);
+  box.appendChild(wrap);
+
+  $("#cal-prev").addEventListener("click", ()=>{
+    const d = new Date(y, m-2, 1);
+    $("#month").value = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+    state.calSel = null;
+    renderList();
+  });
+  $("#cal-next").addEventListener("click", ()=>{
+    const d = new Date(y, m, 1);
+    $("#month").value = `${d.getFullYear()}-${pad(d.getMonth()+1)}`;
+    state.calSel = null;
+    renderList();
+  });
+  const clearBtn = $("#cal-clear");
+  if(clearBtn) clearBtn.addEventListener("click", ()=>{ state.calSel = null; loadMonth(ym); });
 }
 
 // 今の表示モードで一覧を描き直す
 function renderList(){
-  if(state.view === "month") loadMonth($("#month").value);
+  if(state.view === "month" || state.view === "cal") loadMonth($("#month").value);
   else loadRecent();
 }
 
@@ -1064,20 +1162,21 @@ $("#login").addEventListener("click", ()=>{
 
 const now = new Date();
 $("#month").value = `${now.getFullYear()}-${pad(now.getMonth()+1)}`;
-$("#month").addEventListener("change", ()=> renderList());
+$("#month").addEventListener("change", ()=>{ state.calSel = null; renderList(); });
 
-$("#v-recent").addEventListener("click", ()=>{
-  state.view = "recent";
-  $("#v-recent").classList.add("on"); $("#v-month").classList.remove("on");
-  $("#month").style.display = "none";
+function switchView(view){
+  state.view = view;
+  state.calSel = null;
+  $("#v-recent").classList.toggle("on", view === "recent");
+  $("#v-month").classList.toggle("on", view === "month");
+  $("#v-cal").classList.toggle("on", view === "cal");
+  $("#month").style.display = (view === "recent") ? "none" : "";
+  $("#calendar").style.display = (view === "cal") ? "" : "none";
   renderList();
-});
-$("#v-month").addEventListener("click", ()=>{
-  state.view = "month";
-  $("#v-month").classList.add("on"); $("#v-recent").classList.remove("on");
-  $("#month").style.display = "";
-  renderList();
-});
+}
+$("#v-recent").addEventListener("click", ()=> switchView("recent"));
+$("#v-month").addEventListener("click", ()=> switchView("month"));
+$("#v-cal").addEventListener("click", ()=> switchView("cal"));
 
 $("#ex-full").addEventListener("click", ()=> exportData(true));
 $("#ex-text").addEventListener("click", ()=> exportData(false));
