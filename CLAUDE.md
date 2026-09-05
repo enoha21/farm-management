@@ -57,18 +57,11 @@ const FIELDS = [
   {id:2, name:"圃場2", loc:"南側"},
 ];
 
-// 畝定義（各圃場6畝）。表示上の畝番号 no と id の数字は逆順なので注意
-const RIDGES = [ {id:"F1R1",field:1,no:6}, ... {id:"F2R6",field:2,no:1} ];
-
-// 畝の寸法
-const RIDGE_LENGTH_CM = 980;  // 9.8m
-const RIDGE_WIDTH_CM  = 75;   // 0.75m
+// 畝定義（各圃場6畝）。id・no とも1〜6で一致（idの番号=noの番号、逆順ではない）
+const RIDGES = [ {id:"F1R1",field:1,no:1}, ... {id:"F2R6",field:2,no:6} ];
 
 // 作物科目データベース（輪作年数・色・表記ゆれ含む作物名リスト）
 const CROP_FAMILIES = { "ナス科": {minYears:3, color:"#dc2626", crops:[...]}, ... };
-
-// 配置提案用の作物情報（条数・株間・推奨株数・収穫/保存メモ）
-const CROP_INFO = { 'トマト': {family:'ナス科', height:'tall', rows:1, spacing:60, ...}, ... };
 ```
 
 ```javascript
@@ -104,7 +97,7 @@ const CROP_INFO = { 'トマト': {family:'ナス科', height:'tall', rows:1, spa
 
 ```javascript
 {
-  tab: 'map',        // 'map'|'input'|'history'|'warnings'|'plan'|'suggest'|'guide'|'data'
+  tab: 'map',        // 'map'|'input'|'history'|'warnings'|'plan'|'guide'|'data'
   plantings: [], plans: [],
   showForm, editId, form: {...},          // 実績入力フォーム
   planYear, showPlanForm, planEditId, planForm: {...},
@@ -112,7 +105,6 @@ const CROP_INFO = { 'トマト': {family:'ナス科', height:'tall', rows:1, spa
   planMapMonth,      // 0=全期間, 1〜12=月フィルター
   planListSort,      // 'ridge'|'time'
   historyYear,       // 0=全年
-  suggestTab, suggestCrops, suggestions, suggestUnplaced  // 配置提案
 }
 ```
 
@@ -127,7 +119,6 @@ const CROP_INFO = { 'トマト': {family:'ナス科', height:'tall', rows:1, spa
 | `history` | 作付け履歴 | 全履歴、年フィルター、畝別テーブル、編集・削除 |
 | `warnings` | 連作警告 | 連作障害の警告一覧と推奨対策 |
 | `plan` | 作付け計画 | 年間マップ／ガント／月別マップ／一覧の4ビュー。「🌱 実績へ」変換 |
-| `suggest` | 配置提案 | 作物リストから輪作・日照・空きスペースを考慮した配置を自動提案 |
 | `guide` | 輪作ガイド | 科目別輪作基準・畝別作付け履歴 |
 | `data` | データ管理 | JSONエクスポート／インポート（マージ）、最終バックアップ日表示、統計 |
 
@@ -144,8 +135,8 @@ const CROP_INFO = { 'トマト': {family:'ナス科', height:'tall', rows:1, spa
 - `savePlan()` / `deletePlan()` / `convertPlanToPlanting()` — 計画のCRUDと実績変換
 - `calculateWarnings()` — 実績間の連作警告（同畝・同科目・輪作年数未満）
 - `checkPlanRotation(plan)` — 計画の連作チェック（実績・他計画との重複）
-- `getRotationStatus(ridgeId, family)` — 'ok'|'caution'|'ng'
-- `generateSuggestions()` — 配置提案の本体（輪作→草丈→サイズ順に配置）
+- `editPlanting(id)` — 入力タブへ切り替えて編集フォームまでスクロール
+- `markCompleted(id)` / `markFailed(id)` — 作付けステータスを収穫済／失敗に変更
 - `exportJSON()` — showSaveFilePicker 対応＋ダウンロードフォールバック。
   成功時 `markExported()` で日時記録 → データ管理タブに「最終バックアップ：○日前」
   表示（`getLastExportInfo()`、30日超で警告）
