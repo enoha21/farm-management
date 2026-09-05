@@ -791,12 +791,17 @@
       }
     }
 
-    // ステータスを収穫済に変更（収穫日未設定なら今日を設定）
+    // ステータスを収穫済に変更（収穫日未設定なら今日を設定）。収穫時の一言コメントをメモ欄に追記
     function markCompleted(id) {
       const idx = appState.plantings.findIndex(p => p.id === id);
       if (idx >= 0) {
         appState.plantings[idx].status = 'completed';
         if (!appState.plantings[idx].harvestDate) appState.plantings[idx].harvestDate = todayStr();
+        const comment = prompt('収穫について一言メモがあれば入力してください（空欄でOK）\n例：思ったより小ぶりだった、虫害少なめ、来年は株間を広げる 等');
+        if (comment && comment.trim()) {
+          const tag = '【収穫後】' + comment.trim();
+          appState.plantings[idx].notes = appState.plantings[idx].notes ? appState.plantings[idx].notes + '\n' + tag : tag;
+        }
       }
       autoSave();
       render();
