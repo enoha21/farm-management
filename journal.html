@@ -144,16 +144,17 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 
 /* 見出し部：帯を敷いて本文と切り離す */
 .entry-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap;
-  background:#E2E5DA;border-bottom:2px solid var(--ink);padding:12px 16px}
+  background:var(--ink);padding:12px 16px}
 .entry .d{display:inline-block;background:var(--mark);color:#fff;
   padding:4px 11px;font-family:var(--mono);font-size:14px;letter-spacing:.03em;
   font-weight:600;white-space:nowrap}
-.entry .t{font-weight:700;font-size:21px;color:var(--ink);line-height:1.4;
-  letter-spacing:.02em}
+.entry .t{font-weight:700;font-size:21px;color:#fff;line-height:1.4;
+  letter-spacing:.04em}
 .entry .ops{margin-left:auto;display:flex;gap:8px}
-.entry .ops button{padding:8px 16px;border:1px solid var(--ink3);background:#fff;
-  cursor:pointer;font-family:var(--jp);font-size:14.5px;font-weight:700;color:var(--ink2)}
-.entry .ops .edit:hover{background:var(--ink);color:#fff;border-color:var(--ink)}
+.entry .ops button{padding:8px 16px;border:1px solid rgba(255,255,255,.45);
+  background:transparent;cursor:pointer;font-family:var(--jp);font-size:14.5px;
+  font-weight:700;color:#fff;transition:background .12s,border-color .12s}
+.entry .ops .edit:hover{background:#fff;color:var(--ink);border-color:#fff}
 .entry .ops .del:hover{background:var(--mark);color:#fff;border-color:var(--mark)}
 
 /* 本文部 */
@@ -170,7 +171,8 @@ button.ghost:hover{border-color:var(--ink);color:var(--ink)}
 .entry .tg{display:inline-block;padding:3px 11px;background:var(--ink);color:#fff;
   font-size:13.5px;margin:0 6px 6px 0}
 .entry.active{outline:3px solid var(--mark);outline-offset:-1px}
-.entry.active .entry-head{background:var(--mark-soft)}
+.entry.active .entry-head{background:var(--mark)}
+.entry.active .d{background:#fff;color:var(--mark)}
 .empty{padding:44px 0;text-align:center;color:var(--ink2);font-size:16px}
 
 .gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center}
