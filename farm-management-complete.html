@@ -123,6 +123,12 @@
       {id:2,name:"圃場2",loc:"南側"},
     ];
 
+    // 畝を西→東の物理的な並びで取得（RIDGES配列の並び順は北→南の縦一覧表示用のため、
+    // 西/東ラベル付きの横並びマップではこちらを使う。noラベルは変更しない）
+    function ridgesWestToEast(fieldId) {
+      return RIDGES.filter(r => r.field === fieldId).slice().reverse();
+    }
+
     const _todayStr = todayStr();
     const _thisYear = new Date().getFullYear();
 
@@ -607,7 +613,7 @@
       var fm = filterMonth || 0;
       let out = '';
       FIELDS.forEach(function(field) {
-        var fRidges = RIDGES.filter(function(r){ return r.field === field.id; });
+        var fRidges = ridgesWestToEast(field.id);
         var nLabel = field.id===1 ? '🛣️ 北側道路' : '圃場1に繋がっている';
         var nClass = field.id===1 ? 'bg-gray-500 text-white' : 'bg-blue-300 text-blue-900';
         var sLabel = field.id===1 ? '圃場2に繋がっている' : '🛣️ 南側道路';
@@ -699,7 +705,7 @@
 
         // 各圃場の畝を小さい色付きバーで表示
         FIELDS.forEach(function(field) {
-          var fRidges = RIDGES.filter(function(r){ return r.field === field.id; });
+          var fRidges = ridgesWestToEast(field.id);
           out += '<div style="margin-bottom:5px">';
           out += '<div style="font-size:9px;color:#9ca3af;margin-bottom:2px">' + field.name + '</div>';
           out += '<div style="display:flex;gap:2px;height:28px">';
@@ -1063,7 +1069,7 @@
         } else {
           // ===== PC用：従来の縦型マップ表示 =====
           FIELDS.forEach(field => {
-            const fieldRidges = RIDGES.filter(r => r.field === field.id);
+            const fieldRidges = ridgesWestToEast(field.id);
             html += `
             <div class="bg-white rounded-xl shadow p-6 mb-8">
               <h2 class="font-bold text-lg mb-4">${field.name}（${field.loc}）</h2>
