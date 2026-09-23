@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>農薬管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<style>
+:root{
+  --paper:#F8F9F1; --card:#FFFFFF; --dot:#E2E9D3; --rule:#DDE4D0; --band:#ECF3E0; --bud:#F4F8EC;
+  --sprout:#9CC77B; --leaf:#4A7C3F;
+  --ink:#232A20; --ink2:#4B5346; --ink3:#7B8373;
+  --mark:#B5432C; --mark-soft:#F6E3DD; --warn:#9A6A00; --warn-soft:#FBF1D6;
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --jp:"Noto Sans JP","Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic",YuGothic,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);background-image:radial-gradient(var(--dot) 1px, transparent 1.4px);
+  background-size:26px 26px;color:var(--ink);font-family:var(--jp);font-size:16px;line-height:1.75;
+  -webkit-text-size-adjust:100%}
+.wrap{max-width:1180px;margin:0 auto;padding:0 16px 80px}
+header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;padding:28px 0 14px;margin-bottom:8px;position:relative}
+header::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;
+  background:linear-gradient(to right,var(--leaf),var(--sprout) 22%,var(--rule) 55%,transparent)}
+h1{margin:0;font-size:26px;font-weight:400;letter-spacing:.14em}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.26em;text-transform:uppercase;color:var(--leaf)}
+.back{font-family:var(--mono);font-size:12.5px;letter-spacing:.1em;color:var(--ink2);text-decoration:none;border-bottom:1px solid var(--rule)}
+.back:hover{color:var(--mark);border-color:var(--mark)}
+.who{margin-left:auto;display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+
+.tabs{display:flex;gap:0;margin:20px 0;flex-wrap:wrap}
+.tab{padding:9px 18px;border:1px solid var(--rule);background:#fff;cursor:pointer;font-family:var(--jp);
+  font-size:15px;color:var(--ink2);margin-left:-1px}
+.tab:first-child{margin-left:0}
+.tab:hover{background:var(--band)}
+.tab.on{background:var(--leaf);color:#fff;border-color:var(--leaf);font-weight:500}
+
+section.pane{background:var(--card);border:1px solid var(--rule);padding:20px;border-radius:4px;margin-bottom:22px}
+.pane-head{font-family:var(--mono);font-size:12px;letter-spacing:.22em;color:var(--leaf);
+  border-bottom:1px solid var(--rule);padding-bottom:9px;margin-bottom:16px}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;align-items:start}
+@media(max-width:880px){.cols{grid-template-columns:1fr}}
+
+label.fld{display:block;margin-bottom:14px}
+label.fld > span{display:block;font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;color:var(--ink2);margin-bottom:5px}
+input[type=text],input[type=date],input[type=number],select,textarea{width:100%;padding:8px 10px;
+  border:1px solid var(--rule);background:#fff;font-family:var(--jp);font-size:16px;color:var(--ink);border-radius:3px}
+textarea{min-height:70px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--sprout);outline-offset:-1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.hint{font-size:13px;color:var(--ink3);margin:-8px 0 14px}
+
+.field{border:1px solid var(--rule);padding:8px;margin-bottom:8px;border-radius:4px}
+.field h3{margin:0 0 6px;font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;color:var(--ink2);font-weight:500}
+.beds{display:grid;gap:3px}
+.bed{display:flex;align-items:center;gap:8px;padding:4px 8px;cursor:pointer;background:var(--bud);border-radius:3px;user-select:none}
+.bed:hover{background:var(--band)}
+.bed.on{background:var(--leaf);color:#fff}
+.bed .no{font-weight:500;flex-shrink:0}
+.bed .cr{flex:1;min-width:0;font-size:14px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bed.on .cr{color:rgba(255,255,255,.88)}
+
+.targets{display:grid;gap:4px;margin-bottom:14px}
+.targets label{display:flex;gap:8px;align-items:center;font-size:15px;padding:4px 8px;background:var(--bud);border-radius:3px;cursor:pointer}
+.targets .m{font-size:12px;color:var(--leaf);font-family:var(--mono)}
+
+.appinfo{background:var(--bud);border-left:3px solid var(--sprout);padding:10px 12px;font-size:14px;margin:-6px 0 14px;border-radius:0 3px 3px 0}
+.appinfo b{font-weight:500}
+
+.checks{margin:14px 0 0}
+.chk{padding:8px 12px;margin-bottom:6px;border-radius:3px;font-size:14.5px}
+.chk.ng{background:var(--mark-soft);color:var(--mark);border-left:4px solid var(--mark)}
+.chk.warn{background:var(--warn-soft);color:var(--warn);border-left:4px solid var(--warn)}
+.chk.ok{background:var(--band);color:var(--leaf);border-left:4px solid var(--leaf)}
+
+button.go{padding:12px 26px;border:0;background:var(--leaf);color:#fff;cursor:pointer;border-radius:3px;
+  font-family:var(--jp);font-size:16px;font-weight:500;letter-spacing:.06em}
+button.go:hover{background:#3D6834}
+button.go:disabled{background:var(--ink3);cursor:not-allowed}
+button.ghost{padding:8px 14px;border:1px solid var(--rule);background:#fff;border-radius:3px;color:var(--ink2);
+  cursor:pointer;font-family:var(--jp);font-size:14px}
+button.ghost:hover{border-color:var(--ink);color:var(--ink)}
+button.del{padding:4px 10px;border:1px solid var(--rule);background:#fff;border-radius:3px;color:var(--ink2);cursor:pointer;font-size:13px}
+button.del:hover{background:var(--mark);color:#fff;border-color:var(--mark)}
+.actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:16px;padding-top:14px;border-top:1px solid var(--rule)}
+.msg{font-size:14px;color:var(--ink2)} .msg.err{color:var(--mark)} .msg.ok{color:var(--leaf)}
+
+table.t{width:100%;border-collapse:collapse;font-size:14px}
+table.t th{text-align:left;font-family:var(--mono);font-size:11.5px;letter-spacing:.08em;color:var(--ink2);
+  border-bottom:2px solid var(--rule);padding:6px 8px;font-weight:500;white-space:nowrap}
+table.t td{border-bottom:1px solid var(--rule);padding:7px 8px;vertical-align:top}
+.scroll{overflow-x:auto}
+.num{font-family:var(--mono);text-align:right;white-space:nowrap}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:13px;font-weight:500;white-space:nowrap}
+.pill.ok{background:var(--band);color:var(--leaf)}
+.pill.ng{background:var(--mark-soft);color:var(--mark)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.small{font-size:13px;color:var(--ink3)}
+.empty{padding:28px 0;text-align:center;color:var(--ink2)}
+
+.status{border:1px solid var(--rule);border-left:4px solid var(--sprout);border-radius:4px;margin-bottom:12px;background:#fff}
+.status.ng{border-left-color:var(--mark)}
+.status .h{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;padding:10px 14px;background:var(--band)}
+.status.ng .h{background:var(--mark-soft)}
+.status .h .n{font-weight:700;font-size:17px}
+.status .h .pill{margin-left:auto}
+.status .b{padding:8px 14px}
+
+.gate{background:var(--card);border:1px solid var(--rule);padding:44px 24px;text-align:center;margin-top:20px}
+.notice{background:var(--mark-soft);border-left:4px solid var(--mark);padding:14px 16px;margin:16px 0;font-size:15px}
+.disclaimer{background:var(--warn-soft);border-left:4px solid var(--warn);padding:12px 14px;margin:14px 0;font-size:14px;color:#5b4300}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <div>
+    <div class="eyebrow">Pesticide Record</div>
+    <h1>農薬管理</h1>
+  </div>
+  <a class="back" href="./farm-management-complete.html">← 農園管理へ</a>
+  <a class="back" href="./journal.html">📓 日誌へ</a>
+  <div class="who" id="who"></div>
+</header>
+
+<div class="notice" id="notice" style="display:none"></div>
+
+<div class="gate" id="gate" style="display:none">
+  <h2 style="margin:0 0 8px;font-size:21px">ログインしてください</h2>
+  <p style="margin:0 0 20px;color:var(--ink2)">農園管理アプリと同じGoogleアカウントでログインします。</p>
+  <button class="go" id="login">Google でログイン</button>
+</div>
+
+<div id="app" style="display:none">
+  <div class="tabs">
+    <button class="tab on" data-tab="spray">散布を記録</button>
+    <button class="tab" data-tab="status">収穫可能日・回数</button>
+    <button class="tab" data-tab="stock">在庫</button>
+    <button class="tab" data-tab="history">散布履歴</button>
+    <button class="tab" data-tab="master">農薬データ</button>
+  </div>
+
+  <!-- ===== 散布を記録 ===== -->
+  <div id="t-spray">
+    <div class="cols">
+      <section class="pane">
+        <div class="pane-head">1　いつ・どこに</div>
+        <label class="fld"><span>散布日</span><input type="date" id="s-date"></label>
+        <label class="fld" style="margin-bottom:6px"><span>畝（複数選べます）</span></label>
+        <div id="s-beds"></div>
+        <div class="small" style="margin:6px 0 14px">畝の右に、その日に植わっている作物が出ます</div>
+        <label class="fld" style="margin-bottom:6px"><span>散布した作物</span></label>
+        <div class="targets" id="s-targets"><div class="small">畝を選ぶと表示されます</div></div>
+      </section>
+
+      <section class="pane">
+        <div class="pane-head">2　何を・どれだけ</div>
+        <label class="fld"><span>農薬</span><select id="s-prod"></select></label>
+        <label class="fld"><span>適用（作物・使用時期・回数）</span>
+          <input type="text" id="s-appfilter" placeholder="作物名で絞り込み" style="margin-bottom:6px">
+          <select id="s-app"></select></label>
+        <div class="appinfo" id="s-appinfo" style="display:none"></div>
+        <div class="row2">
+          <label class="fld"><span>希釈倍率（倍）</span><input type="number" id="s-dil" min="1" step="1" inputmode="numeric"></label>
+          <label class="fld"><span>散布液量（L）</span><input type="number" id="s-liq" min="0" step="0.1" inputmode="decimal"></label>
+        </div>
+        <label class="fld"><span id="s-amt-label">薬剤の使用量</span><input type="number" id="s-amt" min="0" step="0.1" inputmode="decimal"></label>
+        <div class="hint" id="s-amt-hint">希釈倍率と散布液量から自動で計算します（直接入力も可）</div>
+        <div class="row2">
+          <label class="fld"><span>展着剤（任意）</span><select id="s-spr"></select></label>
+          <label class="fld"><span id="s-spramt-label">展着剤の使用量</span><input type="number" id="s-spramt" min="0" step="0.1" inputmode="decimal"></label>
+        </div>
+        <label class="fld"><span>メモ（天候・風など）</span><textarea id="s-note"></textarea></label>
+        <div class="checks" id="s-checks"></div>
+        <div class="actions">
+          <button class="go" id="s-save">記録する</button>
+          <button class="ghost" id="s-clear">入力を消す</button>
+          <span class="msg" id="s-msg"></span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- ===== 収穫可能日・回数 ===== -->
+  <div id="t-status" style="display:none">
+    <div class="disclaimer">登録内容から計算した目安です。使用前に必ず農薬のラベルで確認してください。</div>
+    <div id="status-list"></div>
+  </div>
+
+  <!-- ===== 在庫 ===== -->
+  <div id="t-stock" style="display:none">
+    <section class="pane">
+      <div class="pane-head">在庫</div>
+      <div class="scroll" id="stock-table"></div>
+    </section>
+    <section class="pane">
+      <div class="pane-head">購入・補充を記録</div>
+      <div class="row2">
+        <label class="fld"><span>日付</span><input type="date" id="b-date"></label>
+        <label class="fld"><span>農薬</span><select id="b-prod"></select></label>
+      </div>
+      <div class="row2">
+        <label class="fld"><span id="b-amt-label">量</span><input type="number" id="b-amt" min="0" step="1" inputmode="decimal"></label>
+        <label class="fld"><span>メモ（購入先・価格など）</span><input type="text" id="b-note"></label>
+      </div>
+      <div class="hint">最初の登録では、今手元にある量を入れてください</div>
+      <div class="actions" style="margin-top:0">
+        <button class="go" id="b-save">記録する</button>
+        <span class="msg" id="b-msg"></span>
+      </div>
+    </section>
+    <section class="pane">
+      <div class="pane-head">購入履歴</div>
+      <div class="scroll" id="buy-list"></div>
+    </section>
+  </div>
+
+  <!-- ===== 散布履歴 ===== -->
+  <div id="t-history" style="display:none">
+    <section class="pane">
+      <div class="pane-head">散布履歴</div>
+      <div class="scroll" id="spray-list"></div>
+    </section>
+  </div>
+
+  <!-- ===== 農薬データ ===== -->
+  <div id="t-master" style="display:none">
+    <div class="disclaimer" id="m-source"></div>
+    <section class="pane">
+      <div class="pane-head">手持ちの農薬（チェックしたものが入力欄に出ます）</div>
+      <div class="scroll" id="m-owned"></div>
+    </section>
+    <section class="pane">
+      <div class="pane-head">適用表を見る</div>
+      <div class="row2">
+        <label class="fld"><span>農薬</span><select id="m-prod"></select></label>
+        <label class="fld"><span>作物名で絞り込み</span><input type="text" id="m-filter"></label>
+      </div>
+      <div class="scroll" id="m-table"></div>
+    </section>
+  </div>
+</div>
+
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyCwEY_jjdzhTHjhrA_CGHs1isx1VHe6YFg",
+  authDomain: "farm-management-29ad7.firebaseapp.com",
+  projectId: "farm-management-29ad7",
+  storageBucket: "farm-management-29ad7.firebasestorage.app",
+  messagingSenderId: "255926610543",
+  appId: "1:255926610543:web:b77fa8f857c3d1f6683b9a",
+  databaseURL: "https://farm-management-29ad7-default-rtdb.asia-southeast1.firebasedatabase.app"
+};
+
+// users/{uid}/pesticide 以下に保存（farmData とは兄弟ノードなので農園アプリの保存で消えない）
+const NODE = "pesticide";
+// 初回に「手持ち」とする登録番号（家庭園芸用の2品は販売元違いの候補として外している）
+const DEFAULT_OWNED = ["20102","23121","19616","4962","7288","23952","4951","24251","22345","21117","18406","22464"];
+
+// 畝の表示番号（farm-management-complete.html の RIDGES と同じ対応。F1R6 が物理1番畝）
+const FIELDS = [{id:1, name:"圃場1（北側）", pre:"F1"}, {id:2, name:"圃場2（南側）", pre:"F2"}];
+const bedNo  = id => 7 - Number(id.split("R")[1]);
+const bedName = id => `${id.startsWith("F1") ? "圃場1" : "圃場2"} 畝${bedNo(id)}`;
+
+const $  = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const today = () => new Date().toLocaleDateString("sv-SE");
+const addDays = (d, n) => { const x = new Date(d + "T00:00:00"); x.setDate(x.getDate() + n); return x.toLocaleDateString("sv-SE"); };
+const daysBetween = (a, b) => Math.round((new Date(b + "T00:00:00") - new Date(a + "T00:00:00")) / 86400000);
+const round1 = n => Math.round(n * 10) / 10;
+
+const state = {
+  uid: null, data: null, products: {}, plantings: [],
+  owned: {}, units: {}, purchases: {}, sprays: {},
+  beds: new Set(), tab: "spray"
+};
+let auth, db;
+const base = () => `users/${state.uid}/${NODE}`;
+
+/* ---------- 登録データの解釈 ---------- */
+const isSpreader = p => p && /展着剤/.test(p.type);
+const defaultUnit = p => /乳剤|液剤|フロアブル|スプレー|展着剤|油剤/.test(p.type) ? "ml" : "g";
+const unitOf = regNo => state.units[regNo] || defaultUnit(state.products[regNo]);
+
+// 収穫前日数：「収穫N日前まで」→N、「収穫前日まで」→1、それ以外は null
+function phiDays(timing){
+  const t = (timing || "").normalize("NFKC");
+  const m = t.match(/収穫(\d+)日前まで/);
+  if (m) return Number(m[1]);
+  if (/収穫前日まで/.test(t)) return 1;
+  return null;
+}
+// 回数上限：「N回以内」「1回」→N、「-」等は null（制限なし）
+function limitOf(s){
+  const m = (s || "").normalize("NFKC").match(/(\d+)回/);
+  return m ? Number(m[1]) : null;
+}
+// 希釈倍率：「1000倍」→{min:1000,max:1000}、「1000～2000倍」→{min,max}
+function dilRange(s){
+  const t = (s || "").normalize("NFKC");
+  let m = t.match(/^(\d+)[~～](\d+)倍$/);
+  if (m) return {min: Number(m[1]), max: Number(m[2])};
+  m = t.match(/^(\d+)倍$/);
+  if (m) return {min: Number(m[1]), max: Number(m[1])};
+  return null;
+}
+
+// 作物名の照合用（半角カナ→全角、ひらがな→カタカナ、別名を寄せる）
+const ALIAS = {"里芋":"サトイモ","小カブ":"カブ","水菜":"ミズナ","青シソ":"シソ","大葉":"シソ","玉ねぎ":"タマネギ",
+  "ツクネイモ":"ヤマノイモ","ナガイモ":"ヤマノイモ","ヤマイモ":"ヤマノイモ","ミニトマト":"トマト","葱":"ネギ"};
+function normCrop(s){
+  let t = (s || "").normalize("NFKC").replace(/\s/g, "");
+  t = ALIAS[t] || t;
+  return t.replace(/[ぁ-ゖ]/g, c => String.fromCharCode(c.charCodeAt(0) + 0x60));
+}
+const cropMatches = (appCrop, cropName) => {
+  const a = normCrop(appCrop), c = normCrop(cropName);
+  return !!c && (a === c || a.includes(c));
+};
+
+/* ---------- 作付け ---------- */
+function plantingsOn(ridgeId, day){
+  return state.plantings.filter(p => {
+    if (!p || p.ridgeId !== ridgeId || !p.cropName || p.status === "failed") return false;
+    const s = (p.plantDate || "").slice(0, 10), e = (p.harvestDate || "").slice(0, 10);
+    if (s && day < s) return false;
+    if (p.status === "completed" && e && day > e) return false;
+    return true;
+  });
+}
+
+/* ---------- 回数・収穫可能日の計算 ---------- */
+const sprayList = () => Object.entries(state.sprays).map(([id, v]) => ({id, ...v}));
+
+// ある作付けに対する散布の集計（excludeId の記録は除く）
+function tally(plantingId, excludeId){
+  const list = sprayList().filter(s => s.id !== excludeId && (s.targets || []).some(t => t.plantingId === plantingId));
+  const byProd = {}, byIngr = {};
+  list.forEach(s => {
+    byProd[s.regNo] = (byProd[s.regNo] || 0) + 1;
+    Object.keys((s.app && s.app.totals) || {}).forEach(k => { byIngr[k] = (byIngr[k] || 0) + 1; });
+  });
+  return {list, byProd, byIngr};
+}
+
+// 散布1回を加えたときの判定
+function checkSpray(target, regNo, app, date, excludeId){
+  const res = [];
+  const {byProd, byIngr} = tally(target.plantingId, excludeId);
+  const lim = limitOf(app.count);
+  const n = (byProd[regNo] || 0) + 1;
+  const pname = state.products[regNo] ? state.products[regNo].name : regNo;
+  if (lim != null) res.push({lv: n > lim ? "ng" : "ok", msg: `${pname}：${n}回目（上限${lim}回）`});
+  Object.entries(app.totals || {}).forEach(([ing, txt]) => {
+    const tl = limitOf(txt);
+    if (tl == null) return;
+    const tn = (byIngr[ing] || 0) + 1;
+    res.push({lv: tn > tl ? "ng" : "ok", msg: `成分 ${ing.normalize("NFKC")}：通算${tn}回目（総使用回数${tl}回）`});
+  });
+  const phi = phiDays(app.timing);
+  if (phi != null){
+    const okDate = addDays(date, phi);
+    const pl = state.plantings.find(p => p.id === target.plantingId);
+    const planned = pl && pl.harvestDate ? pl.harvestDate.slice(0, 10) : "";
+    if (planned && planned < okDate) res.push({lv: "warn", msg: `収穫可能は ${okDate} から。予定収穫日 ${planned} より後です`});
+    else res.push({lv: "ok", msg: `収穫可能は ${okDate} から（収穫${phi === 1 ? "前日" : phi + "日前"}まで）`});
+  }
+  return res;
+}
+
+/* ---------- Firebase ---------- */
+function boot(){
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.database();
+  auth.onAuthStateChanged(async u => {
+    if (u){
+      state.uid = u.uid;
+      $("#gate").style.display = "none";
+      $("#app").style.display = "block";
+      $("#who").innerHTML = `<span>${esc(u.email || u.displayName || "")}</span> <button class="ghost" id="logout">ログアウト</button>`;
+      $("#logout").addEventListener("click", () => auth.signOut());
+      await loadAll();
+    } else {
+      state.uid = null;
+      $("#gate").style.display = "block";
+      $("#app").style.display = "none";
+      $("#who").innerHTML = "";
+    }
+  });
+}
+
+async function loadAll(){
+  try {
+    const [dataRes, farmSnap, pSnap] = await Promise.all([
+      fetch("./pesticide-data.json", {cache: "no-cache"}).then(r => r.json()),
+      db.ref(`users/${state.uid}/farmData`).once("value"),
+      db.ref(base()).once("value")
+    ]);
+    state.data = dataRes;
+    state.products = {};
+    dataRes.products.forEach(p => state.products[p.regNo] = p);
+    const fd = farmSnap.val() || {};
+    const toArr = v => Array.isArray(v) ? v.filter(Boolean) : (v && typeof v === "object" ? Object.values(v) : []);
+    state.plantings = toArr(fd.plantings);
+    const pd = pSnap.val() || {};
+    state.units = pd.units || {};
+    state.purchases = pd.purchases || {};
+    state.sprays = pd.sprays || {};
+    if (pd.owned) state.owned = pd.owned;
+    else {
+      state.owned = {};
+      DEFAULT_OWNED.forEach(r => state.owned[r] = true);
+      await db.ref(`${base()}/owned`).set(state.owned);
+    }
+    renderAll();
+  } catch (e) {
+    $("#notice").style.display = "block";
+    $("#notice").innerHTML = `<b>読み込めませんでした</b><br>${esc(e.message)}`;
+  }
+}
+
+async function reloadPesticide(){
+  const pd = (await db.ref(base()).once("value")).val() || {};
+  state.units = pd.units || {};
+  state.purchases = pd.purchases || {};
+  state.sprays = pd.sprays || {};
+  state.owned = pd.owned || state.owned;
+  renderAll();
+}
+
+/* ---------- 画面全体 ---------- */
+function ownedList(filter){
+  return Object.keys(state.owned).filter(r => state.owned[r] && state.products[r] && (!filter || filter(state.products[r])))
+    .map(r => state.products[r]).sort((a, b) => a.name.localeCompare(b.name, "ja"));
+}
+
+function renderAll(){
+  renderSprayForm();
+  renderStatus();
+  renderStock();
+  renderHistory();
+  renderMaster();
+}
+
+function switchTab(t){
+  state.tab = t;
+  $$(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  ["spray", "status", "stock", "history", "master"].forEach(k => $("#t-" + k).style.display = k === t ? "" : "none");
+}
+
+/* ---------- 散布フォーム ---------- */
+function renderSprayForm(){
+  if (!$("#s-date").value) $("#s-date").value = today();
+  // 畝
+  const box = $("#s-beds");
+  box.innerHTML = "";
+  FIELDS.forEach(f => {
+    const d = document.createElement("div");
+    d.className = "field";
+    d.innerHTML = `<h3>${f.name}</h3><div class="beds"></div>`;
+    const beds = d.querySelector(".beds");
+    for (let no = 1; no <= 6; no++){
+      const id = `${f.pre}R${7 - no}`;
+      const r = document.createElement("div");
+      r.className = "bed" + (state.beds.has(id) ? " on" : "");
+      r.dataset.bed = id;
+      r.innerHTML = `<span class="no">畝${no}</span><span class="cr" data-cr="${id}"></span>`;
+      r.addEventListener("click", () => {
+        if (state.beds.has(id)) state.beds.delete(id); else state.beds.add(id);
+        r.classList.toggle("on", state.beds.has(id));
+        renderAppOptions();  // 畝の作物に一致する適用を先頭に並べ直す（対象作物も更新される）
+      });
+      beds.appendChild(r);
+    }
+    box.appendChild(d);
+  });
+  paintBedCrops();
+
+  // 農薬
+  const cur = $("#s-prod").value;
+  const pests = ownedList(p => !isSpreader(p));
+  $("#s-prod").innerHTML = `<option value="">選んでください</option>` +
+    pests.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("");
+  if (cur && pests.some(p => p.regNo === cur)) $("#s-prod").value = cur;
+
+  const curS = $("#s-spr").value;
+  const sprs = ownedList(isSpreader);
+  $("#s-spr").innerHTML = `<option value="">使わない</option>` +
+    sprs.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("");
+  if (curS) $("#s-spr").value = curS;
+  updateSpreaderUnit();
+  renderAppOptions();
+  renderTargets();
+}
+
+function paintBedCrops(){
+  const day = $("#s-date").value || today();
+  $$("[data-cr]").forEach(el => {
+    el.textContent = plantingsOn(el.dataset.cr, day).map(p => p.cropName).join("・");
+  });
+}
+
+function renderTargets(){
+  const day = $("#s-date").value || today();
+  const box = $("#s-targets");
+  const app = currentApp();
+  // 適用を選び直したらチェックの既定値（適用作物と一致するものだけ）に戻す
+  const key = $("#s-prod").value + ":" + $("#s-app").value;
+  const prev = key === state.targetKey ? new Map($$("#s-targets input").map(i => [i.value, i.checked])) : new Map();
+  state.targetKey = key;
+  const list = [];
+  Array.from(state.beds).sort((a, b) => bedName(a).localeCompare(bedName(b), "ja")).forEach(b => {
+    plantingsOn(b, day).forEach(p => list.push(p));
+  });
+  if (!state.beds.size){ box.innerHTML = `<div class="small">畝を選ぶと表示されます</div>`; renderChecks(); return; }
+  if (!list.length){ box.innerHTML = `<div class="small">選んだ畝に、この日に植わっている作物がありません</div>`; renderChecks(); return; }
+  box.innerHTML = list.map(p => {
+    const match = app ? cropMatches(app.crop, p.cropName) : false;
+    const checked = prev.has(p.id) ? prev.get(p.id) : (app ? match : true);
+    return `<label><input type="checkbox" value="${esc(p.id)}"${checked ? " checked" : ""}>
+      ${esc(bedName(p.ridgeId))}：${esc(p.cropName)}${p.variety ? "（" + esc(p.variety) + "）" : ""}
+      ${match ? '<span class="m">適用作物と一致</span>' : ""}</label>`;
+  }).join("");
+  $$("#s-targets input").forEach(i => i.addEventListener("change", renderChecks));
+  renderChecks();
+}
+
+function currentApp(){
+  const p = state.products[$("#s-prod").value];
+  const i = $("#s-app").value;
+  return p && i !== "" ? p.apps[Number(i)] : null;
+}
+
+function appLabel(a){
+  const pests = a.pests.join("、");
+  return `${a.crop.normalize("NFKC")}｜${a.timing || "-"}｜本剤${a.count || "-"}｜${a.dil}｜${pests.length > 24 ? pests.slice(0, 24) + "…" : pests}`;
+}
+
+// 選んだ畝の作物に一致する適用を先頭に並べる
+function renderAppOptions(){
+  const p = state.products[$("#s-prod").value];
+  const sel = $("#s-app");
+  if (!p){ sel.innerHTML = `<option value="">先に農薬を選んでください</option>`; showAppInfo(); return; }
+  const prevVal = sel.value;
+  const day = $("#s-date").value || today();
+  const crops = [];
+  state.beds.forEach(b => plantingsOn(b, day).forEach(x => crops.push(x.cropName)));
+  const q = normCrop($("#s-appfilter").value);
+  const rows = p.apps.map((a, i) => ({a, i}))
+    .filter(({a}) => !q || normCrop(a.crop).includes(q) || normCrop(a.pests.join("")).includes(q));
+  const hit = rows.filter(({a}) => crops.some(c => cropMatches(a.crop, c)));
+  const rest = rows.filter(r => !hit.includes(r));
+  const opt = ({a, i}) => `<option value="${i}">${esc(appLabel(a))}</option>`;
+  sel.innerHTML = `<option value="">適用を選んでください（${rows.length}件）</option>` +
+    (hit.length ? `<optgroup label="選んだ畝の作物に一致">${hit.map(opt).join("")}</optgroup>` : "") +
+    (rest.length ? `<optgroup label="${hit.length ? "その他（作物群など）" : "すべて"}">${rest.map(opt).join("")}</optgroup>` : "");
+  if (prevVal !== "" && rows.some(r => String(r.i) === prevVal)) sel.value = prevVal;
+  else if (hit.length === 1) sel.value = String(hit[0].i);
+  showAppInfo();
+}
+
+function showAppInfo(){
+  const a = currentApp();
+  const box = $("#s-appinfo");
+  const regNo = $("#s-prod").value;
+  $("#s-amt-label").textContent = `薬剤の使用量（${regNo ? unitOf(regNo) : "ml/g"}）`;
+  if (!a){ box.style.display = "none"; renderTargets(); return; }
+  const phi = phiDays(a.timing);
+  const totals = Object.entries(a.totals || {}).map(([k, v]) => `${esc(k.normalize("NFKC"))}を含む農薬の総使用回数：${esc(v)}`).join("<br>");
+  box.style.display = "block";
+  box.innerHTML = `<b>${esc(a.crop.normalize("NFKC"))}</b>　${esc(a.pests.join("、"))}<br>
+    希釈：<b>${esc(a.dil)}</b>${a.vol ? "　液量：" + esc(a.vol) : ""}　方法：${esc(a.method)}<br>
+    使用時期：<b>${esc(a.timing || "-")}</b>${phi != null ? `（散布後 ${phi} 日たてば収穫可）` : ""}<br>
+    本剤の使用回数：<b>${esc(a.count || "-")}</b>${totals ? "<br>" + totals : ""}`;
+  const r = dilRange(a.dil);
+  if (r && !$("#s-dil").dataset.touched) $("#s-dil").value = r.max;
+  if (!r && !$("#s-dil").dataset.touched) $("#s-dil").value = "";
+  $("#s-amt-hint").textContent = r
+    ? "希釈倍率と散布液量から自動で計算します（直接入力も可）"
+    : `この適用は「${a.dil}」のため、使用量を直接入力してください`;
+  calcAmount();
+  renderTargets();
+}
+
+function calcAmount(){
+  const a = currentApp();
+  const dil = Number($("#s-dil").value), liq = Number($("#s-liq").value);
+  if ($("#s-amt").dataset.touched) { renderChecks(); return; }
+  if (a && /原液/.test(a.dil) && liq > 0) $("#s-amt").value = round1(liq * 1000);
+  else if (dil > 0 && liq > 0) $("#s-amt").value = round1(liq * 1000 / dil);
+  calcSpreader();
+  renderChecks();
+}
+
+function updateSpreaderUnit(){
+  const r = $("#s-spr").value;
+  $("#s-spramt-label").textContent = `展着剤の使用量（${r ? unitOf(r) : "ml/g"}）`;
+}
+// 展着剤の標準量（散布液1Lあたり）。「1～3ml/散布液10L」→0.1（少ない側）
+function spreaderPerL(dil){
+  const t = (dil || "").normalize("NFKC");
+  const m = t.match(/([\d.]+)(?:[~～][\d.]+)?ml\/散布液([\d.]+)L/);
+  if (m) return Number(m[1]) / Number(m[2]);
+  const r = dilRange(t);
+  return r ? 1000 / r.max : null;
+}
+function calcSpreader(){
+  const r = $("#s-spr").value;
+  if (!r || $("#s-spramt").dataset.touched) return;
+  const liq = Number($("#s-liq").value);
+  const perL = spreaderPerL((state.products[r].apps[0] || {}).dil);
+  if (perL && liq > 0) $("#s-spramt").value = round1(liq * perL);
+}
+
+function selectedTargets(){
+  return $$("#s-targets input:checked").map(i => {
+    const p = state.plantings.find(x => x.id === i.value);
+    return p ? {plantingId: p.id, ridgeId: p.ridgeId, cropName: p.cropName} : null;
+  }).filter(Boolean);
+}
+
+function renderChecks(){
+  const box = $("#s-checks");
+  const regNo = $("#s-prod").value, a = currentApp(), date = $("#s-date").value;
+  if (!regNo || !a || !date){ box.innerHTML = ""; return; }
+  const out = [];
+  const r = dilRange(a.dil), dil = Number($("#s-dil").value);
+  if (r && dil > 0 && dil < r.min) out.push({lv: "ng", msg: `希釈倍率 ${dil}倍 は登録（${a.dil}）より濃くなっています`});
+  const t = selectedTargets();
+  if (!t.length) out.push({lv: "warn", msg: "散布した作物にチェックを入れてください（回数を数えるため）"});
+  t.forEach(x => {
+    if (!cropMatches(a.crop, x.cropName))
+      out.push({lv: "warn", msg: `${x.cropName} は適用作物「${a.crop.normalize("NFKC")}」と名前が一致しません。作物群に含まれるかラベルで確認してください`});
+    checkSpray(x, regNo, a, date).forEach(c => out.push({...c, msg: `${bedName(x.ridgeId)} ${x.cropName}：${c.msg}`}));
+  });
+  const amt = Number($("#s-amt").value);
+  if (amt > 0){
+    const left = stockOf(regNo) - amt;
+    if (left < 0) out.push({lv: "warn", msg: `在庫が足りません（記録上の残り ${round1(stockOf(regNo))}${unitOf(regNo)}）`});
+  }
+  box.innerHTML = out.map(c => `<div class="chk ${c.lv}">${c.lv === "ng" ? "✕ " : c.lv === "warn" ? "⚠ " : "✓ "}${esc(c.msg)}</div>`).join("");
+}
+
+async function saveSpray(){
+  const msg = $("#s-msg");
+  const regNo = $("#s-prod").value, a = currentApp(), date = $("#s-date").value;
+  const amt = Number($("#s-amt").value);
+  if (!date){ msg.className = "msg err"; msg.textContent = "散布日を入れてください"; return; }
+  if (!regNo || !a){ msg.className = "msg err"; msg.textContent = "農薬と適用を選んでください"; return; }
+  if (!(amt > 0)){ msg.className = "msg err"; msg.textContent = "薬剤の使用量を入れてください"; return; }
+  const targets = selectedTargets();
+  if (!targets.length && !confirm("散布した作物が選ばれていません。回数の集計に入りませんが記録しますか？")) return;
+  const ng = $$("#s-checks .chk.ng").map(e => e.textContent);
+  if (ng.length && !confirm("次の点が登録内容を超えています。\n\n" + ng.join("\n") + "\n\nこのまま記録しますか？")) return;
+
+  const spr = $("#s-spr").value, sprAmt = Number($("#s-spramt").value);
+  const rec = {
+    date, regNo, name: state.products[regNo].name,
+    app: {crop: a.crop, timing: a.timing, count: a.count, dil: a.dil, totals: a.totals || {}},
+    beds: Array.from(state.beds).sort(), targets,
+    dilution: Number($("#s-dil").value) || null,
+    liquidL: Number($("#s-liq").value) || null,
+    amount: round1(amt), unit: unitOf(regNo),
+    spreader: spr && sprAmt > 0 ? {regNo: spr, name: state.products[spr].name, amount: round1(sprAmt), unit: unitOf(spr)} : null,
+    note: $("#s-note").value.trim(),
+    saved: new Date().toISOString()
+  };
+  const id = `s_${date.replace(/-/g, "")}_${Math.random().toString(36).slice(2, 7)}`;
+  $("#s-save").disabled = true;
+  try {
+    await db.ref(`${base()}/sprays/${id}`).set(rec);
+    msg.className = "msg ok";
+    msg.textContent = `記録しました（${rec.name} ${rec.amount}${rec.unit}）。続けて別の作物・農薬も記録できます`;
+    // 同じ日・同じ畝で続けて記録しやすいよう、日付と畝は残す
+    ["#s-amt", "#s-spramt", "#s-dil"].forEach(s => { $(s).value = ""; delete $(s).dataset.touched; });
+    $("#s-note").value = "";
+    await reloadPesticide();
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = "記録できませんでした：" + e.message;
+  } finally { $("#s-save").disabled = false; }
+}
+
+function clearSpray(){
+  state.beds.clear();
+  ["#s-dil", "#s-liq", "#s-amt", "#s-spramt", "#s-note", "#s-appfilter"].forEach(s => { $(s).value = ""; delete $(s).dataset.touched; });
+  $("#s-prod").value = ""; $("#s-spr").value = "";
+  $("#s-date").value = today();
+  $("#s-msg").textContent = "";
+  renderSprayForm();
+}
+
+/* ---------- 収穫可能日・回数 ---------- */
+function renderStatus(){
+  const box = $("#status-list");
+  const sprays = sprayList();
+  const ids = new Set();
+  sprays.forEach(s => (s.targets || []).forEach(t => ids.add(t.plantingId)));
+  const pls = state.plantings.filter(p => ids.has(p.id) && p.status !== "failed")
+    .sort((a, b) => (a.status === "completed") - (b.status === "completed") || bedName(a.ridgeId).localeCompare(bedName(b.ridgeId), "ja"));
+  if (!pls.length){ box.innerHTML = `<div class="empty">散布記録がまだありません</div>`; return; }
+  const now = today();
+  box.innerHTML = pls.map(p => {
+    const {list, byProd, byIngr} = tally(p.id);
+    let okDate = null;
+    list.forEach(s => { const d = phiDays(s.app.timing); if (d != null){ const x = addDays(s.date, d); if (!okDate || x > okDate) okDate = x; } });
+    const blocked = okDate && now < okDate;
+    const pill = p.status === "completed" ? `<span class="pill ok">収穫済</span>`
+      : !okDate ? `<span class="pill ok">収穫前日数の制限なし</span>`
+      : blocked ? `<span class="pill ng">${okDate} まで収穫不可（あと${daysBetween(now, okDate)}日）</span>`
+      : `<span class="pill ok">収穫可（${okDate}〜）</span>`;
+    let over = false;
+    const prodRows = Object.entries(byProd).map(([reg, n]) => {
+      const last = list.filter(s => s.regNo === reg).sort((a, b) => b.date.localeCompare(a.date))[0];
+      const lim = limitOf(last.app.count);
+      if (lim != null && n > lim) over = true;
+      return `<tr><td>${esc(last.name)}</td><td class="num">${n}${lim != null ? " / " + lim : ""}回</td><td>${esc(last.date)}</td><td>${esc(last.app.timing || "-")}</td></tr>`;
+    }).join("");
+    const ingLimits = {};
+    list.forEach(s => Object.entries(s.app.totals || {}).forEach(([k, v]) => {
+      const l = limitOf(v); if (l != null) ingLimits[k] = ingLimits[k] == null ? l : Math.min(ingLimits[k], l);
+    }));
+    const ingRows = Object.entries(byIngr).map(([k, n]) => {
+      const l = ingLimits[k];
+      if (l != null && n > l) over = true;
+      return `<span class="pill ${l != null && n > l ? "ng" : "ok"}" style="margin:0 6px 4px 0">${esc(k.normalize("NFKC"))} ${n}${l != null ? "/" + l : ""}回</span>`;
+    }).join("");
+    return `<div class="status${blocked || over ? " ng" : ""}">
+      <div class="h"><span class="n">${esc(p.cropName)}</span><span class="small">${esc(bedName(p.ridgeId))}　植付 ${esc(p.plantDate || "-")}${p.harvestDate ? "　収穫予定 " + esc(p.harvestDate) : ""}</span>${pill}</div>
+      <div class="b">
+        <table class="t"><thead><tr><th>農薬</th><th>回数</th><th>最終散布</th><th>使用時期</th></tr></thead><tbody>${prodRows}</tbody></table>
+        <div style="margin-top:8px"><span class="small">成分ごとの通算：</span>${ingRows || '<span class="small">制限なし</span>'}</div>
+        ${over ? `<div class="chk ng" style="margin-top:8px">✕ 使用回数の上限を超えています</div>` : ""}
+      </div></div>`;
+  }).join("");
+}
+
+/* ---------- 在庫 ---------- */
+function usedOf(regNo){
+  let n = 0;
+  sprayList().forEach(s => {
+    if (s.regNo === regNo) n += Number(s.amount) || 0;
+    if (s.spreader && s.spreader.regNo === regNo) n += Number(s.spreader.amount) || 0;
+  });
+  return n;
+}
+function boughtOf(regNo){
+  return Object.values(state.purchases).filter(b => b.regNo === regNo).reduce((n, b) => n + (Number(b.amount) || 0), 0);
+}
+const stockOf = regNo => boughtOf(regNo) - usedOf(regNo);
+
+function renderStock(){
+  const list = ownedList();
+  $("#stock-table").innerHTML = !list.length ? `<div class="empty">農薬データのタブで手持ちの農薬を選んでください</div>` :
+    `<table class="t"><thead><tr><th>農薬</th><th>購入計</th><th>使用計</th><th>残り</th><th></th></tr></thead><tbody>` +
+    list.map(p => {
+      const u = unitOf(p.regNo), b = boughtOf(p.regNo), used = usedOf(p.regNo), left = b - used;
+      const st = !b ? `<span class="pill warn">未登録</span>` : left <= 0 ? `<span class="pill ng">なし</span>` : "";
+      return `<tr><td>${esc(p.name)}</td><td class="num">${round1(b)}${u}</td><td class="num">${round1(used)}${u}</td>
+        <td class="num"><b>${round1(left)}${u}</b></td><td>${st}</td></tr>`;
+    }).join("") + `</tbody></table>`;
+
+  if (!$("#b-date").value) $("#b-date").value = today();
+  const cur = $("#b-prod").value;
+  $("#b-prod").innerHTML = `<option value="">選んでください</option>` + list.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("");
+  if (cur) $("#b-prod").value = cur;
+  updateBuyUnit();
+
+  const buys = Object.entries(state.purchases).map(([id, v]) => ({id, ...v})).sort((a, b) => b.date.localeCompare(a.date));
+  $("#buy-list").innerHTML = !buys.length ? `<div class="empty">まだありません</div>` :
+    `<table class="t"><thead><tr><th>日付</th><th>農薬</th><th>量</th><th>メモ</th><th></th></tr></thead><tbody>` +
+    buys.map(b => `<tr><td>${esc(b.date)}</td><td>${esc((state.products[b.regNo] || {}).name || b.regNo)}</td>
+      <td class="num">${esc(b.amount)}${esc(unitOf(b.regNo))}</td><td>${esc(b.note || "")}</td>
+      <td><button class="del" data-buy="${esc(b.id)}">削除</button></td></tr>`).join("") + `</tbody></table>`;
+  $$("[data-buy]").forEach(btn => btn.addEventListener("click", async () => {
+    if (!confirm("この購入記録を削除しますか？")) return;
+    await db.ref(`${base()}/purchases/${btn.dataset.buy}`).remove();
+    await reloadPesticide();
+  }));
+}
+function updateBuyUnit(){
+  const r = $("#b-prod").value;
+  $("#b-amt-label").textContent = `量（${r ? unitOf(r) : "ml/g"}）`;
+}
+async function saveBuy(){
+  const msg = $("#b-msg");
+  const date = $("#b-date").value, regNo = $("#b-prod").value, amount = Number($("#b-amt").value);
+  if (!date || !regNo || !(amount > 0)){ msg.className = "msg err"; msg.textContent = "日付・農薬・量を入れてください"; return; }
+  const id = `b_${date.replace(/-/g, "")}_${Math.random().toString(36).slice(2, 7)}`;
+  await db.ref(`${base()}/purchases/${id}`).set({date, regNo, amount, note: $("#b-note").value.trim(), saved: new Date().toISOString()});
+  $("#b-amt").value = ""; $("#b-note").value = "";
+  msg.className = "msg ok"; msg.textContent = "記録しました";
+  await reloadPesticide();
+}
+
+/* ---------- 散布履歴 ---------- */
+function renderHistory(){
+  const list = sprayList().sort((a, b) => (b.date + b.id).localeCompare(a.date + a.id));
+  $("#spray-list").innerHTML = !list.length ? `<div class="empty">まだありません</div>` :
+    `<table class="t"><thead><tr><th>散布日</th><th>農薬</th><th>対象</th><th>適用</th><th>使用量</th><th>収穫可能</th><th></th></tr></thead><tbody>` +
+    list.map(s => {
+      const phi = phiDays(s.app.timing);
+      const tg = (s.targets || []).map(t => `${bedName(t.ridgeId)} ${t.cropName}`).join("<br>") || (s.beds || []).map(bedName).join("、");
+      return `<tr><td>${esc(s.date)}</td><td>${esc(s.name)}${s.spreader ? `<div class="small">＋${esc(s.spreader.name)} ${esc(s.spreader.amount)}${esc(s.spreader.unit)}</div>` : ""}</td>
+        <td>${tg}</td><td>${esc(s.app.crop.normalize("NFKC"))}<div class="small">${esc(s.app.timing || "-")}</div></td>
+        <td class="num">${esc(s.amount)}${esc(s.unit)}${s.dilution ? `<div class="small">${esc(s.dilution)}倍 ${esc(s.liquidL || "")}L</div>` : ""}</td>
+        <td>${phi != null ? esc(addDays(s.date, phi)) : "-"}</td>
+        <td><button class="del" data-sp="${esc(s.id)}">削除</button></td></tr>
+        ${s.note ? `<tr><td></td><td colspan="6" class="small">${esc(s.note)}</td></tr>` : ""}`;
+    }).join("") + `</tbody></table>`;
+  $$("[data-sp]").forEach(btn => btn.addEventListener("click", async () => {
+    if (!confirm("この散布記録を削除しますか？（回数と在庫の計算からも外れます）")) return;
+    await db.ref(`${base()}/sprays/${btn.dataset.sp}`).remove();
+    await reloadPesticide();
+  }));
+}
+
+/* ---------- 農薬データ ---------- */
+function renderMaster(){
+  const d = state.data;
+  $("#m-source").innerHTML = `出典：${esc(d.source)}（${esc(d.confirmed)} 取得）。登録内容は変わることがあります。
+    使用前に必ず農薬のラベルで確認してください。登録番号はラベルに書かれています。`;
+  const all = Object.values(state.products).sort((a, b) => a.name.localeCompare(b.name, "ja"));
+  $("#m-owned").innerHTML = `<table class="t"><thead><tr><th>手持ち</th><th>登録番号</th><th>名称</th><th>種類</th><th>単位</th></tr></thead><tbody>` +
+    all.map(p => `<tr><td><input type="checkbox" data-own="${p.regNo}"${state.owned[p.regNo] ? " checked" : ""}></td>
+      <td class="num">${esc(p.regNo)}</td><td>${esc(p.name)}</td><td class="small">${esc(p.type)}</td>
+      <td><select data-unit="${p.regNo}" style="width:auto">${["ml", "g"].map(u => `<option${unitOf(p.regNo) === u ? " selected" : ""}>${u}</option>`).join("")}</select></td></tr>`).join("") +
+    `</tbody></table><div class="small" style="margin-top:8px">スミチオン乳剤とダイアジノン粒剤３は販売元違いの製品があり、適用が異なります。
+    ラベルの登録番号と同じものにチェックを入れてください。</div>`;
+  $$("[data-own]").forEach(c => c.addEventListener("change", async () => {
+    await db.ref(`${base()}/owned/${c.dataset.own}`).set(c.checked ? true : null);
+    state.owned[c.dataset.own] = c.checked;
+    renderSprayForm(); renderStock();
+  }));
+  $$("[data-unit]").forEach(s => s.addEventListener("change", async () => {
+    await db.ref(`${base()}/units/${s.dataset.unit}`).set(s.value);
+    state.units[s.dataset.unit] = s.value;
+    renderAll();
+  }));
+
+  const cur = $("#m-prod").value;
+  $("#m-prod").innerHTML = all.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("");
+  if (cur) $("#m-prod").value = cur;
+  renderMasterTable();
+}
+
+function renderMasterTable(){
+  const p = state.products[$("#m-prod").value];
+  if (!p){ $("#m-table").innerHTML = ""; return; }
+  const q = normCrop($("#m-filter").value);
+  const rows = p.apps.filter(a => !q || normCrop(a.crop).includes(q));
+  const tk = Object.keys((p.apps[0] || {}).totals || {});
+  $("#m-table").innerHTML = `<div class="small" style="margin-bottom:6px">${esc(p.name)}（登録番号 ${esc(p.regNo)}）　${esc(p.comp.filter(Boolean).join(" ／ "))}</div>
+    <table class="t"><thead><tr><th>作物名</th><th>適用病害虫</th><th>希釈・使用量</th><th>使用時期</th><th>本剤回数</th><th>使用方法</th>${tk.map(k => `<th>${esc(k.normalize("NFKC"))}総回数</th>`).join("")}</tr></thead><tbody>` +
+    rows.map(a => `<tr><td>${esc(a.crop.normalize("NFKC"))}${a.place ? `<div class="small">${esc(a.place)}</div>` : ""}</td>
+      <td class="small">${esc(a.pests.join("、"))}</td><td>${esc(a.dil)}${a.vol ? `<div class="small">${esc(a.vol)}</div>` : ""}</td>
+      <td>${esc(a.timing || "-")}</td><td>${esc(a.count || "-")}</td><td class="small">${esc(a.method)}</td>
+      ${tk.map(k => `<td class="small">${esc((a.totals || {})[k] || "")}</td>`).join("")}</tr>`).join("") +
+    `</tbody></table>${rows.length ? "" : '<div class="empty">一致する作物がありません</div>'}`;
+}
+
+/* ---------- 配線 ---------- */
+$$(".tab").forEach(b => b.addEventListener("click", () => switchTab(b.dataset.tab)));
+$("#s-date").addEventListener("change", () => { paintBedCrops(); renderAppOptions(); renderTargets(); });
+$("#s-prod").addEventListener("change", () => {
+  $("#s-appfilter").value = "";
+  delete $("#s-dil").dataset.touched; delete $("#s-amt").dataset.touched;
+  renderAppOptions();
+});
+$("#s-appfilter").addEventListener("input", renderAppOptions);
+$("#s-app").addEventListener("change", () => { delete $("#s-dil").dataset.touched; showAppInfo(); });
+$("#s-dil").addEventListener("input", e => { e.target.dataset.touched = "1"; delete $("#s-amt").dataset.touched; calcAmount(); });
+$("#s-liq").addEventListener("input", () => { delete $("#s-amt").dataset.touched; calcAmount(); });
+$("#s-amt").addEventListener("input", e => { e.target.dataset.touched = "1"; renderChecks(); });
+$("#s-spr").addEventListener("change", () => { delete $("#s-spramt").dataset.touched; updateSpreaderUnit(); calcSpreader(); });
+$("#s-spramt").addEventListener("input", e => { e.target.dataset.touched = "1"; });
+$("#s-save").addEventListener("click", saveSpray);
+$("#s-clear").addEventListener("click", clearSpray);
+$("#b-prod").addEventListener("change", updateBuyUnit);
+$("#b-save").addEventListener("click", saveBuy);
+$("#m-prod").addEventListener("change", renderMasterTable);
+$("#m-filter").addEventListener("input", renderMasterTable);
+$("#login").addEventListener("click", () => {
+  auth.signInWithPopup(new firebase.auth.GoogleAuthProvider()).catch(e => {
+    $("#notice").style.display = "block";
+    $("#notice").innerHTML = `<b>ログインできませんでした</b><br>${esc(e.message)}`;
+  });
+});
+
+boot();
+</script>
+</body>
+</html>

@@ -181,6 +181,19 @@ const CROP_FAMILIES = { "ナス科": {minYears:3, color:"#dc2626", crops:[...]},
 
 ---
 
+## 農薬管理ページ（pesticide.html）
+
+- 別ページ。Firebase `users/{uid}/pesticide` に保存（farmData の兄弟ノード。本体の set() で消えない）
+  - `owned/{登録番号}`：手持ち　`units/{登録番号}`：ml/g　`purchases/{id}`：購入　`sprays/{id}`：散布
+  - 在庫＝購入計−散布の使用量計（展着剤は spreader として散布記録に同梱）
+- 適用表は `pesticide-data.json`（FAMIC 農薬登録情報提供システムから取得。ハードコードしない）
+  - 更新・追加：`tools/fetch_pesticides.py` の `REG_NOS` を編集して `python tools/fetch_pesticides.py`
+  - 作物名は半角カナ・ひらがな混在。照合は `normCrop()`（NFKC＋ひらがな→カタカナ＋別名）
+- 散布記録は適用（作物×使用時期×回数）のスナップショットを保存し、対象作付け（plantingId）単位で集計
+  - 収穫前日数：「収穫N日前まで」→N、「収穫前日まで」→1（但し書き内も対象）。収穫可能日＝散布日＋N
+  - 回数：本剤回数と「○○を含む農薬の総使用回数」（成分ごと）を別々に数える
+- 畝番号は本体と同じ対応（`bedNo = 7 - Rの番号`、F1R6＝畝1）
+
 ## 運用メモ
 
 - commit / push はユーザーの動作確認と明示的な指示を待ってから行う
@@ -189,7 +202,6 @@ const CROP_FAMILIES = { "ナス科": {minYears:3, color:"#dc2626", crops:[...]},
 
 ## 今後の改善候補（未実装）
 
-- 農薬使用の作業記録機能（構造化した散布記録。農薬マスタはハードコードしない方針）
 - スマホの操作ボタン拡大・屋外向けコントラスト改善
 - ユーザー入力のHTMLエスケープ（引用符で表示が崩れる問題）
 - 印刷レイアウトの改善
