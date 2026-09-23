@@ -289,7 +289,8 @@ const base = () => `users/${state.uid}/${NODE}`;
 
 /* ---------- 登録データの解釈 ---------- */
 const isSpreader = p => p && /展着剤/.test(p.type);
-const defaultUnit = p => /乳剤|液剤|フロアブル|スプレー|展着剤|油剤/.test(p.type) ? "ml" : "g";
+// 液体はml。フロアブルは登録上「〜水和剤」なので製品名も見る
+const defaultUnit = p => /乳剤|液剤|フロアブル|スプレー|展着剤|油剤/.test(p.name + p.type) ? "ml" : "g";
 const unitOf = regNo => state.units[regNo] || defaultUnit(state.products[regNo]);
 
 // 収穫前日数：「収穫N日前まで」→N、「収穫前日まで」→1、それ以外は null
@@ -491,7 +492,7 @@ function renderSprayForm(){
   const cur = $("#s-prod").value;
   const pests = ownedList(p => !isSpreader(p));
   $("#s-prod").innerHTML = `<option value="">選んでください</option>` +
-    pests.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("");
+    groupByCategory(pests).map(g => `<optgroup label="${esc(g.c)}">${g.items.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("");
   if (cur && pests.some(p => p.regNo === cur)) $("#s-prod").value = cur;
 
   const curS = $("#s-spr").value;
@@ -759,20 +760,30 @@ function boughtOf(regNo){
 }
 const stockOf = regNo => boughtOf(regNo) - usedOf(regNo);
 
+// 在庫の分類（殺虫剤・殺菌剤・展着剤…）
+const CATEGORY_ORDER = ["殺虫剤", "殺菌剤", "殺虫殺菌剤", "除草剤", "展着剤", "その他"];
+const categoryOf = p => isSpreader(p) ? "展着剤" : (CATEGORY_ORDER.includes(p.use) ? p.use : "その他");
+function groupByCategory(list){
+  return CATEGORY_ORDER.map(c => ({c, items: list.filter(p => categoryOf(p) === c)})).filter(g => g.items.length);
+}
+
 function renderStock(){
   const list = ownedList();
+  const groups = groupByCategory(list);
   $("#stock-table").innerHTML = !list.length ? `<div class="empty">農薬データのタブで手持ちの農薬を選んでください</div>` :
     `<table class="t"><thead><tr><th>農薬</th><th>購入計</th><th>使用計</th><th>残り</th><th></th></tr></thead><tbody>` +
-    list.map(p => {
-      const u = unitOf(p.regNo), b = boughtOf(p.regNo), used = usedOf(p.regNo), left = b - used;
-      const st = !b ? `<span class="pill warn">未登録</span>` : left <= 0 ? `<span class="pill ng">なし</span>` : "";
-      return `<tr><td>${esc(p.name)}</td><td class="num">${round1(b)}${u}</td><td class="num">${round1(used)}${u}</td>
-        <td class="num"><b>${round1(left)}${u}</b></td><td>${st}</td></tr>`;
-    }).join("") + `</tbody></table>`;
+    groups.map(g => `<tr><td colspan="5" style="background:var(--band);font-weight:500;color:var(--leaf)">${esc(g.c)}（${g.items.length}）</td></tr>` +
+      g.items.map(p => {
+        const u = unitOf(p.regNo), b = boughtOf(p.regNo), used = usedOf(p.regNo), left = b - used;
+        const st = !b ? `<span class="pill warn">未登録</span>` : left <= 0 ? `<span class="pill ng">なし</span>` : "";
+        return `<tr><td>${esc(p.name)}</td><td class="num">${round1(b)}${u}</td><td class="num">${round1(used)}${u}</td>
+          <td class="num"><b>${round1(left)}${u}</b></td><td>${st}</td></tr>`;
+      }).join("")).join("") + `</tbody></table>`;
 
   if (!$("#b-date").value) $("#b-date").value = today();
   const cur = $("#b-prod").value;
-  $("#b-prod").innerHTML = `<option value="">選んでください</option>` + list.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("");
+  $("#b-prod").innerHTML = `<option value="">選んでください</option>` +
+    groups.map(g => `<optgroup label="${esc(g.c)}">${g.items.map(p => `<option value="${p.regNo}">${esc(p.name)}</option>`).join("")}</optgroup>`).join("");
   if (cur) $("#b-prod").value = cur;
   updateBuyUnit();
 
